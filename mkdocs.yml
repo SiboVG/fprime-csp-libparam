@@ -2,6 +2,7 @@
 
 site_name: fprime-csp-libparam
 site_description: Reusable F Prime integration for Space Inventor libcsp and libparam
+site_url: https://sibovg.github.io/fprime-csp-libparam/
 docs_dir: docs
 site_dir: site
 strict: true

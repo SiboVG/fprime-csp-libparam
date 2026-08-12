@@ -102,6 +102,13 @@ mkdocs serve
 Use `mkdocs build --strict --clean` for the same documentation check run by
 continuous integration.
 
+The Pages workflow publishes to
+[sibovg.github.io/fprime-csp-libparam](https://sibovg.github.io/fprime-csp-libparam/)
+after a repository maintainer enables GitHub Pages with GitHub Actions as its
+source. On GitHub.com, a Pages site is public even when its source repository is
+private unless private Pages visibility is provided and configured through
+GitHub Enterprise.
+
 ## Public API
 
 - `Stack::initialize(StackConfig, Transport&)` claims the process-wide CSP

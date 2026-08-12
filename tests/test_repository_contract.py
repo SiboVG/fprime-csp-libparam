@@ -20,6 +20,7 @@ TEST_ROOT = LIBRARY_ROOT / "tests"
 RUNNER = TEST_ROOT / "run_repository_contracts.sh"
 SMOKE_ROOT = TEST_ROOT / "smoke_consumer"
 SMOKE_RUNNER = TEST_ROOT / "run_runtime_smoke.sh"
+PAGES_WORKFLOW = LIBRARY_ROOT / ".github" / "workflows" / "pages.yml"
 
 LIBCSP_COMMIT = "5a95e5c48826c3602bf4a34aa5d60e2af9e4a004"
 LIBPARAM_COMMIT = "d78da56e7cbc8b6be30d8890b6f01cdf80d0b9b9"
@@ -325,6 +326,64 @@ class DocumentationContract(unittest.TestCase):
         self.assertIn("mkdocs-material", requirements)
         self.assertIn("fprime-csp-libparam", index)
         self.assertIn("site/", gitignore)
+
+    def test_github_pages_publishes_the_strict_mkdocs_artifact(self) -> None:
+        self.assertTrue(
+            PAGES_WORKFLOW.is_file(),
+            ".github/workflows/pages.yml must publish the standalone documentation",
+        )
+        workflow = PAGES_WORKFLOW.read_text(encoding="utf-8")
+        mkdocs = read("mkdocs.yml")
+
+        self.assertIn(
+            "site_url: https://sibovg.github.io/fprime-csp-libparam/",
+            mkdocs,
+        )
+        self.assertIn(
+            "on:\n  push:\n    branches:\n      - main\n  workflow_dispatch:",
+            workflow,
+        )
+        self.assertIn(
+            "permissions:\n  contents: read\n  pages: write\n  id-token: write",
+            workflow,
+        )
+        self.assertIn(
+            "concurrency:\n  group: pages\n  cancel-in-progress: false",
+            workflow,
+        )
+
+        for action in (
+            "actions/checkout@v7",
+            "actions/setup-python@v7",
+            "actions/configure-pages@v6",
+            "actions/upload-pages-artifact@v5",
+            "actions/deploy-pages@v5",
+        ):
+            self.assertIn(action, workflow)
+
+        self.assertIn("python -m mkdocs build --strict --clean", workflow)
+        self.assertIn("path: ./site", workflow)
+        self.assertIn("name: github-pages", workflow)
+        self.assertIn("url: ${{ steps.deployment.outputs.page_url }}", workflow)
+
+        permission_block = re.search(
+            r"(?m)^permissions:\n((?:^  [a-z-]+: [a-z]+\n?)+)",
+            workflow,
+        )
+        self.assertIsNotNone(permission_block)
+        self.assertEqual(
+            {
+                "contents: read",
+                "pages: write",
+                "id-token: write",
+            },
+            {
+                line.strip()
+                for line in permission_block.group(1).splitlines()
+                if line.strip()
+            },
+            "the Pages workflow must not grant unrelated token permissions",
+        )
 
     def test_documentation_site_offers_light_and_dark_palettes(self) -> None:
         mkdocs = read("mkdocs.yml")
