@@ -1,0 +1,16 @@
+if(NOT FPRIMECSP_ENABLE_SOCKETCAN)
+    return()
+endif()
+
+register_fprime_library(
+    SOURCES
+        "${CMAKE_CURRENT_LIST_DIR}/SocketCanTransport.cpp"
+    HEADERS
+        "${CMAKE_CURRENT_LIST_DIR}/SocketCanTransport.hpp"
+    DEPENDS
+        FprimeCsp_Runtime
+        csp
+)
+
+target_compile_features(${FPRIME_CURRENT_MODULE} PUBLIC cxx_std_17)
+target_include_directories(${FPRIME_CURRENT_MODULE} PUBLIC "${FPRIMECSP_LIBRARY_ROOT}")

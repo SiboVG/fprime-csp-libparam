@@ -1,0 +1,26 @@
+.DS_Store
+*.log
+*.o
+*.a
+*.so
+*.dylib
+*~
+
+__pycache__/
+*.py[cod]
+.venv/
+.venv-docs/
+
+# Exact dependency revisions are recreated by the bootstrap script.
+lib/
+
+# F Prime and CMake build products.
+build/
+build-*/
+build-artifacts/
+CMakeFiles/
+CMakeCache.txt
+Testing/
+compile_commands.json
+logs/
+site/
