@@ -110,9 +110,8 @@ jobs:
           ldd_output="$(ldd "$CSP_BENCH_BIN")" &&
           printf '%s\n' "$ldd_output" &&
           ! grep -F -q -- "not found" <<<"$ldd_output" &&
-          ./scripts/run_vcan_integration.sh "$CSP_BENCH_BIN"
-          --interface cspvcan0 --client-node 100 --server-node 101
-          --param-id 200 --write-value 0xA5A55A5A
+          ./scripts/run_vcan_type_matrix.sh "$CSP_BENCH_BIN"
+          --interface cspvcan0
       - name: Remove isolated virtual CAN bus
         if: always() && steps.setup-vcan.outcome == 'success'
         working-directory: CspLibparamFprimeTest
