@@ -1,7 +1,11 @@
 name: Publish documentation
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - Repository checks
+    types:
+      - completed
     branches:
       - main
   workflow_dispatch:
@@ -16,14 +20,67 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validation:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require successful CI before automatic deployment
+        if: github.event_name == 'workflow_run'
+        env:
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: test "$CI_CONCLUSION" = "success"
+
+      - name: Check out manually selected revision
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Configure C++ unit tests for manual deployment
+        if: github.event_name == 'workflow_dispatch'
+        run: cmake -S tests/unit -B build-unit-tests -G Ninja
+
+      - name: Build C++ unit tests for manual deployment
+        if: github.event_name == 'workflow_dispatch'
+        run: cmake --build build-unit-tests
+
+      - name: Run C++ unit tests for manual deployment
+        if: github.event_name == 'workflow_dispatch'
+        run: ctest --test-dir build-unit-tests --output-on-failure
+
+      - name: Configure sanitized unit tests for manual deployment
+        if: github.event_name == 'workflow_dispatch'
+        run: >-
+          cmake -S tests/unit -B build-unit-tests-sanitized -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build sanitized unit tests for manual deployment
+        if: github.event_name == 'workflow_dispatch'
+        run: cmake --build build-unit-tests-sanitized
+
+      - name: Run sanitized unit tests for manual deployment
+        if: github.event_name == 'workflow_dispatch'
+        run: ctest --test-dir build-unit-tests-sanitized --output-on-failure
+        env:
+          ASAN_OPTIONS: halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+
+      - name: Run repository contracts for manual deployment
+        if: github.event_name == 'workflow_dispatch'
+        run: ./tests/run_repository_contracts.sh
+
   build:
-    if: github.ref == 'refs/heads/main'
+    needs: validation
     runs-on: ubuntu-24.04
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v7

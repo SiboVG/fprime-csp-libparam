@@ -84,7 +84,18 @@ accepting a target whose shutdown could block forever.
 
 ## Repository checks and documentation
 
-The repository-owned contracts use only Python's standard library and CMake:
+Run the host C/C++ unit suite with:
+
+```bash
+cmake -S tests/unit -B build-unit-tests -G Ninja
+cmake --build build-unit-tests
+ctest --test-dir build-unit-tests --output-on-failure
+```
+
+These tests compile the real runtime, SocketCAN adapter, libparam wrapper, and
+C bridge against narrow boundary fakes for libcsp, libparam, and F Prime's task
+API. They do not require CAN hardware. The repository-owned structural
+contracts use only Python's standard library and CMake:
 
 ```bash
 ./tests/run_repository_contracts.sh

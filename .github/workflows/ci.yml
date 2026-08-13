@@ -8,20 +8,48 @@ permissions:
   contents: read
 
 jobs:
+  unit-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure C++ unit tests
+        run: cmake -S tests/unit -B build-unit-tests -G Ninja
+      - name: Build C++ unit tests
+        run: cmake --build build-unit-tests
+      - name: Run C++ unit tests
+        run: ctest --test-dir build-unit-tests --output-on-failure
+
+  sanitizers:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure C++ unit tests with sanitizers
+        run: >-
+          cmake -S tests/unit -B build-unit-tests-sanitized -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+      - name: Build C++ unit tests with sanitizers
+        run: cmake --build build-unit-tests-sanitized
+      - name: Run C++ unit tests with sanitizers
+        run: ctest --test-dir build-unit-tests-sanitized --output-on-failure
+        env:
+          ASAN_OPTIONS: halt_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+
   contracts:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - name: Install CMake
-        run: sudo apt-get update && sudo apt-get install -y cmake
+      - uses: actions/checkout@v7
       - name: Run standalone repository contracts
         run: ./tests/run_repository_contracts.sh
 
   documentation:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install documentation dependencies

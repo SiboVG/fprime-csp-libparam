@@ -340,7 +340,9 @@ class DocumentationContract(unittest.TestCase):
             mkdocs,
         )
         self.assertIn(
-            "on:\n  push:\n    branches:\n      - main\n  workflow_dispatch:",
+            "on:\n  workflow_run:\n    workflows:\n      - Repository checks\n"
+            "    types:\n      - completed\n    branches:\n      - main\n"
+            "  workflow_dispatch:",
             workflow,
         )
         self.assertIn(
@@ -583,12 +585,44 @@ class BoundedShutdownContract(unittest.TestCase):
 
 
 class ContinuousIntegrationContract(unittest.TestCase):
-    def test_github_workflow_runs_standalone_contracts_and_strict_docs(self) -> None:
+    def test_github_workflow_runs_cpp_unit_tests_contracts_and_strict_docs(self) -> None:
         workflow = read(".github/workflows/ci.yml")
 
-        self.assertIn("ubuntu-24.04", workflow)
-        self.assertIn("./tests/run_repository_contracts.sh", workflow)
-        self.assertIn("mkdocs build --strict --clean", workflow)
+        for token in (
+            "ubuntu-24.04",
+            "cmake -S tests/unit -B build-unit-tests -G Ninja",
+            "cmake --build build-unit-tests",
+            "ctest --test-dir build-unit-tests --output-on-failure",
+            "build-unit-tests-sanitized",
+            "-fsanitize=address,undefined",
+            "ctest --test-dir build-unit-tests-sanitized --output-on-failure",
+            "./tests/run_repository_contracts.sh",
+            "mkdocs build --strict --clean",
+        ):
+            self.assertIn(token, workflow)
+
+    def test_pages_waits_for_successful_ci_and_validates_manual_runs(self) -> None:
+        workflow = read(".github/workflows/pages.yml")
+
+        for token in (
+            "workflow_run:",
+            "workflows:\n      - Repository checks",
+            "types:\n      - completed",
+            "branches:\n      - main",
+            "workflow_dispatch:",
+            "github.event.workflow_run.head_sha || github.sha",
+            "CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}",
+            'test "$CI_CONCLUSION" = "success"',
+            "cmake -S tests/unit -B build-unit-tests -G Ninja",
+            "ctest --test-dir build-unit-tests --output-on-failure",
+            "build-unit-tests-sanitized",
+            "-fsanitize=address,undefined",
+            "./tests/run_repository_contracts.sh",
+            "needs: validation",
+        ):
+            self.assertIn(token, workflow)
+
+        self.assertNotIn("on:\n  push:", workflow)
 
 
 if __name__ == "__main__":

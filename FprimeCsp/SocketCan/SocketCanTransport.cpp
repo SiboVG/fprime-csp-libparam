@@ -19,6 +19,9 @@ int SocketCanTransport::open(const std::uint16_t localNode, const std::uint8_t n
     if (this->m_interface != nullptr) {
         return CSP_ERR_ALREADY;
     }
+    if (this->m_config.device.empty()) {
+        return CSP_ERR_INVAL;
+    }
 
     const char* interfaceName = this->m_config.interfaceName.empty() ? nullptr : this->m_config.interfaceName.c_str();
     const int status = csp_can_socketcan_open_and_add_interface(this->m_config.device.c_str(),
