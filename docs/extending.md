@@ -73,6 +73,11 @@ this->m_parameter.array_step = sizeof(std::uint32_t);
 this->m_parameter.type = PARAM_TYPE_UINT32;
 ```
 
+For a RAM-backed descriptor, `addr` and `array_step` must be naturally aligned
+for the declared integer type (for example, use `alignof(std::uint32_t)` for
+`PARAM_TYPE_UINT32`). VMEM descriptors may use byte-addressed offsets and
+strides; their stride must still be large enough to hold one value.
+
 The application must also select the appropriate upstream mask, callback, and
 VMEM fields for its local or remote descriptor policy. Treat this example as
 an ownership pattern, not a complete mission schema.
@@ -98,14 +103,56 @@ Do not bind a separate port for every parameter.
 
 ### 4. Use a matching typed client operation
 
-`FprimeCsp::Client::pullU32` and `pushU32` operate on application-owned remote
-descriptors of type `PARAM_TYPE_UINT32`. Adding another `uint32` parameter does
-not require a library change.
+`FprimeCsp::Client::pullInteger` and `pushInteger` provide one checked interface
+for the integer types normally needed by housekeeping and control parameters:
 
-For a new type, first decide whether a narrow wrapper belongs only in the
-application. Promote it into `FprimeCsp_Libparam` when more than one consumer
-needs the same checked operation. Keep the protocol version explicit and avoid
-exposing unchecked `void*` operations to a component.
+| Descriptor type | Accepted values for `pushInteger` |
+|---|---:|
+| `PARAM_TYPE_UINT8` | 0 to 255 |
+| `PARAM_TYPE_INT8` | -128 to 127 |
+| `PARAM_TYPE_UINT16` | 0 to 65,535 |
+| `PARAM_TYPE_INT16` | -32,768 to 32,767 |
+| `PARAM_TYPE_UINT32` | 0 to 4,294,967,295 |
+| `PARAM_TYPE_INT32` | -2,147,483,648 to 2,147,483,647 |
+
+Both methods take an explicit `std::uint8_t index`. Use `0` for a scalar; for
+an array, use an index smaller than `array_size`. The pinned `csh/2.10`
+serializer stores the offset in one signed byte, so the wrapper rejects indices
+above `127` even if the descriptor declares a larger array. It also rejects a
+descriptor whose node does not equal `peerNode`, whose storage references are
+incomplete, whose stride is smaller than its integer type, or whose RAM address
+or stride is not naturally aligned. The alignment rule applies only to RAM
+descriptors; VMEM remains byte-addressed.
+
+```cpp
+std::int64_t busMillivolts = 0;
+if (!this->m_client.pullInteger(
+        this->m_busVoltage, this->m_pduNode, 1000, 0, busMillivolts)) {
+    return false;
+}
+
+const std::uint8_t channel = 3;
+std::int64_t channelMilliamps = 0;
+if (!this->m_client.pullInteger(
+        this->m_channelCurrent, this->m_pduNode, 1000, channel, channelMilliamps)) {
+    return false;
+}
+```
+
+The output of `pullInteger` is unchanged when validation or the transaction
+fails. `pushInteger` checks the signed/unsigned value range before sending and
+requests libparam's acknowledgement-with-pull behavior. Treat that response as
+transport/protocol acknowledgement, not proof that attached hardware reached
+the requested state. Read the authoritative status and telemetry parameters in
+a separate transaction.
+
+The original `pullU32` and `pushU32` methods remain available for existing
+scalar `PARAM_TYPE_UINT32` consumers. New indexed code should use the checked
+integer methods. For a type outside the table, first decide whether a narrow
+wrapper belongs only in the application. Promote it into `FprimeCsp_Libparam`
+when more than one consumer needs the same checked operation. Keep the protocol
+version explicit and avoid exposing unchecked `void*` operations to a
+component.
 
 Registration alone does not make the value F Prime telemetry, enforce a range,
 persist it, or authorize a write. Those decisions stay in the application.
@@ -170,7 +217,7 @@ A generated ground-command handler must emit one command response on every
 path. An incoming CSP request has no F Prime command identity, so report its
 acceptance or completion through the CSP protocol defined by the application.
 
-Synchronous client calls such as `pullU32` block the calling component thread
+Synchronous client calls such as `pullInteger` block the calling component thread
 until success or timeout. Choose a dedicated component, queue depth, timeout,
 and retry policy when that latency is unsuitable for other application work.
 

@@ -62,6 +62,38 @@ bool Client::pushU32(param_t& parameter,
     return this->m_lastError == 0;
 }
 
+bool Client::pullInteger(param_t& parameter,
+                         const std::uint16_t peerNode,
+                         const std::uint32_t timeoutMs,
+                         const std::uint8_t index,
+                         std::int64_t& value) {
+    if ((this->m_protocolVersion == 0U) || (this->m_protocolVersion > 2U)) {
+        this->m_lastError = -1;
+        return false;
+    }
+    std::int64_t pulledValue = 0;
+    this->m_lastError = fprimecsp_param_pull_integer(
+        &parameter, peerNode, timeoutMs, this->m_protocolVersion, index, &pulledValue);
+    if (this->m_lastError == 0) {
+        value = pulledValue;
+    }
+    return this->m_lastError == 0;
+}
+
+bool Client::pushInteger(param_t& parameter,
+                         const std::uint16_t peerNode,
+                         const std::uint32_t timeoutMs,
+                         const std::uint8_t index,
+                         const std::int64_t value) {
+    if ((this->m_protocolVersion == 0U) || (this->m_protocolVersion > 2U)) {
+        this->m_lastError = -1;
+        return false;
+    }
+    this->m_lastError = fprimecsp_param_push_integer(
+        &parameter, peerNode, timeoutMs, this->m_protocolVersion, index, value);
+    return this->m_lastError == 0;
+}
+
 int Client::lastError() const {
     return this->m_lastError;
 }

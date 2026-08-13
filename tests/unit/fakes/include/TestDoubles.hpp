@@ -63,6 +63,10 @@ struct ParamState {
     int pullStatus = 0;
     int getU32Calls = 0;
     std::uint32_t getU32Value = 0;
+    int getIntegerCalls = 0;
+    param_type_e getIntegerType = PARAM_TYPE_INVALID;
+    unsigned int getIntegerIndex = 0;
+    std::int64_t getIntegerValue = 0;
     int pushCalls = 0;
     param_t* pushParameter = nullptr;
     int pushOffset = 0;
@@ -73,6 +77,7 @@ struct ParamState {
     int pushVersion = 0;
     bool pushAckWithPull = false;
     std::uint32_t pushedValue = 0;
+    std::int64_t pushedIntegerValue = 0;
     int pushStatus = 0;
 };
 

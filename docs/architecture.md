@@ -161,7 +161,7 @@ sequenceDiagram
 
 | Context | Expected work |
 |---|---|
-| Calling F Prime component thread | Synchronous `ping`, `pullU32`, and `pushU32` calls; application policy; telemetry, events, and command responses. |
+| Calling F Prime component thread | Synchronous `ping`, `pullInteger`, and `pushInteger` calls; application policy; telemetry, events, and command responses. |
 | CSP router task | Repeated `csp_route_work()` calls and synchronous dispatch of bound callbacks. |
 | Transport receive worker | Driver-specific receive processing that feeds a CSP interface. The supplied SocketCAN driver may own this worker. |
 
@@ -212,6 +212,10 @@ second stack or hot-restart one in place.
   netmask string.
 - `Client` defaults to **libparam protocol version 2**. Both peers must agree on
   the version and on every parameter ID, type, node, and array shape.
+- Indexed integer operations support `UINT8`, `INT8`, `UINT16`, `INT16`,
+  `UINT32`, and `INT32`. A scalar uses index `0`. The pinned libparam release
+  serializes an array offset in one signed byte, so this library accepts only
+  indices `0..127`, additionally bounded by the descriptor's `array_size`.
 - The libparam `Server` binds the upstream parameter service on CSP port 10.
   One server handles requests for all registered descriptors; parameters do
   not each get a port. Descriptor-list download is a separate upstream service.
@@ -242,10 +246,11 @@ Keep these in the consuming application:
 - hardware configuration and acceptance tests.
 
 The first release supports one stack lifetime, one attached transport, and
-typed `uint32` libparam client operations. It provides no authentication,
-authorization, parameter discovery, redundant routing, or flight
-qualification. The optional SocketCAN target is Linux-specific; an embedded
-consumer must provide and qualify its own transport and upstream configuration.
+typed scalar/indexed 8-, 16-, and 32-bit integer libparam client operations. It
+provides no authentication, authorization, parameter discovery, redundant
+routing, or flight qualification. The optional SocketCAN target is
+Linux-specific; an embedded consumer must provide and qualify its own transport
+and upstream configuration.
 
 [FPP]: https://nasa.github.io/fpp/fpp-users-guide.html
 [Command Dispatcher SDD]: https://fprime.jpl.nasa.gov/latest/Svc/CmdDispatcher/docs/sdd/

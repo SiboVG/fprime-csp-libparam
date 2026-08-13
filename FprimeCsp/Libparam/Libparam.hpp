@@ -45,6 +45,18 @@ class Client final {
                  std::uint16_t peerNode,
                  std::uint32_t timeoutMs,
                  std::uint32_t value);
+    /** Pull one checked integer element; index 0 addresses a scalar. */
+    bool pullInteger(param_t& parameter,
+                     std::uint16_t peerNode,
+                     std::uint32_t timeoutMs,
+                     std::uint8_t index,
+                     std::int64_t& value);
+    /** Push one checked integer element with acknowledgement-with-pull. */
+    bool pushInteger(param_t& parameter,
+                     std::uint16_t peerNode,
+                     std::uint32_t timeoutMs,
+                     std::uint8_t index,
+                     std::int64_t value);
 
     int lastError() const;
 

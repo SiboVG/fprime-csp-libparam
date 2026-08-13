@@ -49,6 +49,12 @@ typedef struct param_s {
 } param_t;
 
 uint32_t param_get_uint32(param_t* parameter);
+uint8_t param_get_uint8_array(param_t* parameter, unsigned int index);
+uint16_t param_get_uint16_array(param_t* parameter, unsigned int index);
+uint32_t param_get_uint32_array(param_t* parameter, unsigned int index);
+int8_t param_get_int8_array(param_t* parameter, unsigned int index);
+int16_t param_get_int16_array(param_t* parameter, unsigned int index);
+int32_t param_get_int32_array(param_t* parameter, unsigned int index);
 
 #ifdef __cplusplus
 }

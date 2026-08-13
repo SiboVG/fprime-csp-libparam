@@ -26,6 +26,18 @@ int fprimecsp_param_push_u32(param_t* parameter,
                              uint32_t timeout_ms,
                              int protocol_version,
                              uint32_t value);
+int fprimecsp_param_pull_integer(param_t* parameter,
+                                 uint16_t peer_node,
+                                 uint32_t timeout_ms,
+                                 int protocol_version,
+                                 uint8_t index,
+                                 int64_t* value);
+int fprimecsp_param_push_integer(param_t* parameter,
+                                 uint16_t peer_node,
+                                 uint32_t timeout_ms,
+                                 int protocol_version,
+                                 uint8_t index,
+                                 int64_t value);
 
 #ifdef __cplusplus
 }

@@ -140,8 +140,12 @@ GitHub Enterprise.
   lifecycle.
 - `Registry::add(param_t&)` registers an application-owned descriptor;
   `Server::bind(Stack&)` exposes the complete registry on port 10.
-- `Client(protocolVersion)` supplies synchronous `pullU32()` and `pushU32()`
-  for application-owned remote descriptors. Protocol version 2 is the default.
+- `Client(protocolVersion)` supplies synchronous typed operations for
+  application-owned remote descriptors. `pullInteger()` and `pushInteger()`
+  support indexed `UINT8`, `INT8`, `UINT16`, `INT16`, `UINT32`, and `INT32`
+  descriptors; use index `0` for a scalar. The original `pullU32()` and
+  `pushU32()` API remains available for existing scalar consumers. Protocol
+  version 2 is the default.
 
 ## Ownership model
 
@@ -181,10 +185,11 @@ repositories.
 
 ## Scope and safety
 
-This initial library supports the extracted `uint32` libparam client path and a
-single CSP stack lifetime. It does not provide authentication, authorization,
-parameter discovery, redundant routing, or flight qualification. Treat all
-wire contracts and write access as application safety responsibilities.
+This initial library supports scalar and indexed 8-, 16-, and 32-bit integer
+libparam client operations and a single CSP stack lifetime. It does not provide
+authentication, authorization, parameter discovery, redundant routing, or
+flight qualification. Treat all wire contracts and write access as application
+safety responsibilities.
 
 ## License
 

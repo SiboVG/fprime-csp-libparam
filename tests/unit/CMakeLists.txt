@@ -88,6 +88,18 @@ add_scenarios(libparam_tests
     pull_u32_forwards_request_and_reads_on_success
     pull_u32_preserves_output_on_failure
     push_u32_forwards_value_and_ack_policy
+    pull_integer_forwards_indexed_typed_requests
+    pull_integer_preserves_output_on_failure
+    push_integer_forwards_indexed_typed_values
+    integer_operations_reject_unsupported_types_before_io
+    integer_operations_reject_invalid_indexes_before_io
+    integer_operations_reject_invalid_descriptor_storage_before_io
+    integer_operations_reject_misaligned_ram_base_before_io
+    integer_operations_reject_misaligned_ram_stride_before_io
+    integer_operations_allow_byte_addressed_vmem_descriptors
+    integer_operations_require_descriptor_node_to_match_peer
+    integer_operations_reject_timeouts_that_cannot_reach_the_c_api
+    push_integer_rejects_out_of_range_values_before_io
     invalid_protocol_version_is_rejected
     bridge_guards_null_inputs
     bridge_serves_non_null_packets

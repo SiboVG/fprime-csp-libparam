@@ -203,7 +203,7 @@ complete `param_t` descriptor and the safe callback-to-component handoff.
 
 ## 5. Call it from an F Prime component
 
-Network client calls such as `ping()`, `pullU32()`, and `pushU32()` are
+Network client calls such as `ping()`, `pullInteger()`, and `pushInteger()` are
 **synchronous**. Invoke them from a context that may block for the configured
 timeout, normally the custom adapter's active component thread. Never make a
 blocking client call from the CSP router callback.
