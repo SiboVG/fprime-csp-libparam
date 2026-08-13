@@ -38,6 +38,95 @@ jobs:
           ASAN_OPTIONS: halt_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
 
+  integration-consumer:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out current library revision
+        uses: actions/checkout@v7
+        with:
+          path: fprime-csp-libparam
+          persist-credentials: false
+      - name: Check out private integration consumer
+        uses: actions/checkout@v7
+        with:
+          repository: SiboVG/CspLibparamFprimeTest
+          ssh-key: ${{ secrets.CSPBENCH_DEPLOY_KEY }}
+          path: CspLibparamFprimeTest
+          persist-credentials: false
+      - name: Install Linux integration dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          build-essential cmake ninja-build git pkg-config python3-venv
+          iproute2 can-utils kmod libsocketcan-dev libbsd-dev
+      - name: Install matching virtual CAN kernel module
+        run: |
+          kernel_release="$(uname -r)"
+          extra_package="linux-modules-extra-${kernel_release}"
+          candidate="$(apt-cache policy "$extra_package" | sed -n 's/^  Candidate: //p')"
+          if [[ -z "$candidate" || "$candidate" == "(none)" ]]; then
+            echo "::error::No vcan kernel-module package for running kernel ${kernel_release}: ${extra_package}"
+            echo "APT candidate: ${candidate:-none}"
+            uname -a
+            apt-cache policy "$extra_package" || true
+            ls -la "/lib/modules/${kernel_release}" || true
+            exit 1
+          fi
+          sudo apt-get install -y "$extra_package"
+          sudo depmod -a "$kernel_release"
+          sudo modprobe vcan
+          modinfo -F filename vcan
+          test -d /sys/module/vcan
+      - name: Bootstrap pinned upstream dependencies
+        working-directory: CspLibparamFprimeTest
+        run: ./scripts/bootstrap_dependencies.sh
+      - name: Install F Prime build dependencies
+        working-directory: CspLibparamFprimeTest
+        run: >-
+          python3 -m venv .venv &&
+          .venv/bin/python -m pip install --upgrade pip &&
+          .venv/bin/python -m pip install -r requirements.txt
+      - name: Generate consumer deployment
+        working-directory: CspLibparamFprimeTest
+        run: >-
+          export PATH="$PWD/.venv/bin:$PATH" &&
+          .venv/bin/fprime-util generate
+          -DPYTHON="$PWD/.venv/bin/python"
+      - name: Build consumer deployment
+        working-directory: CspLibparamFprimeTest
+        run: >-
+          export PATH="$PWD/.venv/bin:$PATH" &&
+          .venv/bin/fprime-util build
+      - name: Create isolated virtual CAN bus
+        id: setup-vcan
+        working-directory: CspLibparamFprimeTest
+        run: sudo ./scripts/setup_vcan.sh up cspvcan0
+      - name: Run real consumer integration
+        working-directory: CspLibparamFprimeTest
+        run: >-
+          export CUBESPEC_LOG_DIR="$PWD/integration-logs" &&
+          CSP_BENCH_BIN="$(find build-artifacts -type f -name CspBench -perm -111 -print -quit)" &&
+          test -n "$CSP_BENCH_BIN" &&
+          ldd_output="$(ldd "$CSP_BENCH_BIN")" &&
+          printf '%s\n' "$ldd_output" &&
+          ! grep -F -q -- "not found" <<<"$ldd_output" &&
+          ./scripts/run_vcan_integration.sh "$CSP_BENCH_BIN"
+          --interface cspvcan0 --client-node 100 --server-node 101
+          --param-id 200 --write-value 0xA5A55A5A
+      - name: Remove isolated virtual CAN bus
+        if: always() && steps.setup-vcan.outcome == 'success'
+        working-directory: CspLibparamFprimeTest
+        run: >-
+          if ip link show cspvcan0 >/dev/null 2>&1; then
+          sudo ./scripts/setup_vcan.sh down cspvcan0; fi
+      - name: Upload consumer integration logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: consumer-vcan-integration-logs
+          path: CspLibparamFprimeTest/integration-logs
+          if-no-files-found: warn
+
   contracts:
     runs-on: ubuntu-24.04
     steps:

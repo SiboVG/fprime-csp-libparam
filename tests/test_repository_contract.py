@@ -612,7 +612,11 @@ class ContinuousIntegrationContract(unittest.TestCase):
             "workflow_dispatch:",
             "github.event.workflow_run.head_sha || github.sha",
             "CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}",
+            "CI_EVENT: ${{ github.event.workflow_run.event }}",
+            "CI_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}",
             'test "$CI_CONCLUSION" = "success"',
+            'test "$CI_EVENT" = "push"',
+            'test "$CI_REPOSITORY" = "$GITHUB_REPOSITORY"',
             "cmake -S tests/unit -B build-unit-tests -G Ninja",
             "ctest --test-dir build-unit-tests --output-on-failure",
             "build-unit-tests-sanitized",
@@ -623,6 +627,85 @@ class ContinuousIntegrationContract(unittest.TestCase):
             self.assertIn(token, workflow)
 
         self.assertNotIn("on:\n  push:", workflow)
+
+    def test_library_ci_runs_the_real_private_bench_consumer(self) -> None:
+        workflow = read(".github/workflows/ci.yml")
+
+        for token in (
+            "integration-consumer:",
+            "if: github.event_name == 'push' && github.ref == 'refs/heads/main'",
+            "repository: SiboVG/CspLibparamFprimeTest",
+            "ssh-key: ${{ secrets.CSPBENCH_DEPLOY_KEY }}",
+            "path: CspLibparamFprimeTest",
+            "path: fprime-csp-libparam",
+            "persist-credentials: false",
+            "./scripts/bootstrap_dependencies.sh",
+            ".venv/bin/fprime-util generate",
+            '-DPYTHON="$PWD/.venv/bin/python"',
+            ".venv/bin/fprime-util build",
+            "CSP_BENCH_BIN=",
+            'ldd_output="$(ldd "$CSP_BENCH_BIN")"',
+            'grep -F -q -- "not found"',
+            "sudo ./scripts/setup_vcan.sh up cspvcan0",
+            "id: setup-vcan",
+            "./scripts/run_vcan_integration.sh",
+            './scripts/run_vcan_integration.sh "$CSP_BENCH_BIN"',
+            "--interface cspvcan0 --client-node 100 --server-node 101",
+            "--param-id 200 --write-value 0xA5A55A5A",
+            'export CUBESPEC_LOG_DIR="$PWD/integration-logs"',
+            "name: consumer-vcan-integration-logs",
+            "path: CspLibparamFprimeTest/integration-logs",
+            "sudo ./scripts/setup_vcan.sh down cspvcan0",
+            "if: always() && steps.setup-vcan.outcome == 'success'",
+        ):
+            self.assertIn(token, workflow)
+
+        self.assertNotRegex(workflow, r"gh[opsu]_[A-Za-z0-9_]+")
+        self.assertNotIn("sudo ./scripts/run_vcan_integration.sh", workflow)
+        self.assertNotIn("continue-on-error: true", workflow)
+
+    def test_real_consumer_build_puts_venv_tools_on_path(self) -> None:
+        workflow = read(".github/workflows/ci.yml")
+
+        for command in (
+            ".venv/bin/fprime-util generate",
+            ".venv/bin/fprime-util build",
+        ):
+            with self.subTest(command=command):
+                self.assertRegex(
+                    workflow,
+                    rf'export PATH="\$PWD/\.venv/bin:\$PATH" &&\s+{re.escape(command)}',
+                )
+
+    def test_consumer_vcan_job_installs_the_running_kernels_module_and_fails_closed(
+        self,
+    ) -> None:
+        workflow = read(".github/workflows/ci.yml")
+        setup_command = "sudo ./scripts/setup_vcan.sh up cspvcan0"
+
+        for token in (
+            'kernel_release="$(uname -r)"',
+            'extra_package="linux-modules-extra-${kernel_release}"',
+            'apt-cache policy "$extra_package"',
+            'candidate="$(apt-cache policy "$extra_package" |',
+            'if [[ -z "$candidate" || "$candidate" == "(none)" ]]; then',
+            'echo "::error::No vcan kernel-module package for running kernel',
+            'ls -la "/lib/modules/${kernel_release}" || true',
+            "exit 1",
+            'sudo apt-get install -y "$extra_package"',
+            'sudo depmod -a "$kernel_release"',
+            "sudo modprobe vcan",
+            "modinfo -F filename vcan",
+            "test -d /sys/module/vcan",
+        ):
+            self.assertIn(token, workflow)
+
+        self.assertRegex(
+            workflow,
+            rf"(?s)sudo modprobe vcan.*{re.escape(setup_command)}",
+        )
+        self.assertNotIn("sudo modprobe vcan || true", workflow)
+        self.assertNotIn("continue-on-error: true", workflow)
 
 
 if __name__ == "__main__":

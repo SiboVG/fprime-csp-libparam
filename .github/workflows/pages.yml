@@ -27,7 +27,12 @@ jobs:
         if: github.event_name == 'workflow_run'
         env:
           CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
-        run: test "$CI_CONCLUSION" = "success"
+          CI_EVENT: ${{ github.event.workflow_run.event }}
+          CI_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
+        run: >-
+          test "$CI_CONCLUSION" = "success" &&
+          test "$CI_EVENT" = "push" &&
+          test "$CI_REPOSITORY" = "$GITHUB_REPOSITORY"
 
       - name: Check out manually selected revision
         if: github.event_name == 'workflow_dispatch'

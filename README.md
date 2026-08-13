@@ -113,6 +113,12 @@ mkdocs serve
 Use `mkdocs build --strict --clean` for the same documentation check run by
 continuous integration.
 
+On trusted pushes, CI also checks out the private downstream acceptance
+consumer, builds its full F Prime deployment, and verifies CSP ping plus
+libparam pull, push, read-back, and restoration over Linux `vcan`. Repository
+pull requests still run the C++ unit tests, sanitizers, contracts, and strict
+documentation build without exposing the cross-repository deploy key.
+
 The Pages workflow publishes to
 [sibovg.github.io/fprime-csp-libparam](https://sibovg.github.io/fprime-csp-libparam/)
 after a repository maintainer enables GitHub Pages with GitHub Actions as its
