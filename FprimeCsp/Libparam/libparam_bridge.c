@@ -10,6 +10,12 @@
 _Static_assert(FPRIMECSP_PARAM_SERVER_PORT == PARAM_PORT_SERVER,
                "F Prime CSP library port must match Space Inventor libparam");
 
+static int validate_integer_parameter(const param_t* parameter,
+                                      uint16_t peer_node,
+                                      uint32_t timeout_ms,
+                                      int protocol_version,
+                                      uint8_t index);
+
 int fprimecsp_param_list_add(param_t* parameter) {
     if (parameter == NULL) {
         return -1;
@@ -28,8 +34,16 @@ int fprimecsp_param_pull_u32(param_t* parameter,
                              const uint32_t timeout_ms,
                              const int protocol_version,
                              uint32_t* value) {
-    if ((parameter == NULL) || (value == NULL)) {
+    if (value == NULL) {
         return -1;
+    }
+    const int validation =
+        validate_integer_parameter(parameter, peer_node, timeout_ms, protocol_version, 0);
+    if (validation != 0) {
+        return validation;
+    }
+    if (parameter->type != PARAM_TYPE_UINT32) {
+        return -2;
     }
     const int status = param_pull_single(parameter,
                                          -1,
@@ -49,8 +63,13 @@ int fprimecsp_param_push_u32(param_t* parameter,
                              const uint32_t timeout_ms,
                              const int protocol_version,
                              const uint32_t value) {
-    if (parameter == NULL) {
-        return -1;
+    const int validation =
+        validate_integer_parameter(parameter, peer_node, timeout_ms, protocol_version, 0);
+    if (validation != 0) {
+        return validation;
+    }
+    if (parameter->type != PARAM_TYPE_UINT32) {
+        return -2;
     }
     uint32_t mutable_value = value;
     return param_push_single(parameter,
@@ -102,11 +121,13 @@ static size_t integer_type_alignment(const param_type_e type) {
 static int validate_integer_parameter(const param_t* parameter,
                                       const uint16_t peer_node,
                                       const uint32_t timeout_ms,
+                                      const int protocol_version,
                                       const uint8_t index) {
     if ((parameter == NULL) || (parameter->node == NULL) ||
         (parameter->timestamp == NULL) ||
         ((parameter->addr == NULL) && (parameter->vmem == NULL)) ||
-        (*parameter->node != peer_node) || (timeout_ms > INT_MAX)) {
+        (*parameter->node != peer_node) || (timeout_ms > INT_MAX) ||
+        (protocol_version < 1) || (protocol_version > 2)) {
         return -1;
     }
     const int type_size = integer_type_size(parameter->type);
@@ -140,7 +161,8 @@ int fprimecsp_param_pull_integer(param_t* parameter,
     if (value == NULL) {
         return -1;
     }
-    const int validation = validate_integer_parameter(parameter, peer_node, timeout_ms, index);
+    const int validation =
+        validate_integer_parameter(parameter, peer_node, timeout_ms, protocol_version, index);
     if (validation != 0) {
         return validation;
     }
@@ -186,7 +208,8 @@ int fprimecsp_param_push_integer(param_t* parameter,
                                  const int protocol_version,
                                  const uint8_t index,
                                  const int64_t value) {
-    const int validation = validate_integer_parameter(parameter, peer_node, timeout_ms, index);
+    const int validation =
+        validate_integer_parameter(parameter, peer_node, timeout_ms, protocol_version, index);
     if (validation != 0) {
         return validation;
     }

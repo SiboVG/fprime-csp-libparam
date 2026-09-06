@@ -1,5 +1,7 @@
 #include "FprimeCsp/Runtime/Stack.hpp"
 
+#include <exception>
+
 namespace FprimeCsp {
 namespace {
 
@@ -19,7 +21,11 @@ std::atomic<bool> processStackClaimed{false};
 Stack::Stack() = default;
 
 Stack::~Stack() {
-    this->shutdown();
+    if (this->shutdown() != ShutdownStatus::COMPLETE) {
+        // Returning would destroy task/transport state that a router thread may
+        // still reference. Incomplete shutdown is therefore process-fatal.
+        std::terminate();
+    }
 }
 
 bool Stack::initialize(const StackConfig& config, Transport& transport) {
@@ -145,21 +151,26 @@ bool Stack::join() {
     return true;
 }
 
-void Stack::shutdown() {
+ShutdownStatus Stack::shutdown() {
     if (this->m_shutdown) {
-        return;
+        return ShutdownStatus::COMPLETE;
     }
     this->requestStop();
-    (void)this->join();
+    if (!this->join()) {
+        return ShutdownStatus::ROUTER_JOIN_FAILED;
+    }
     if (this->m_transport != nullptr) {
         const int status = this->m_transport->close();
         if (status != CSP_ERR_NONE) {
             this->m_lastError = status;
+            return ShutdownStatus::TRANSPORT_CLOSE_FAILED;
         }
         this->m_transport = nullptr;
     }
     this->m_initialized = false;
     this->m_shutdown = true;
+    this->m_lastError = 0;
+    return ShutdownStatus::COMPLETE;
 }
 
 int Stack::ping(const std::uint16_t peerNode,

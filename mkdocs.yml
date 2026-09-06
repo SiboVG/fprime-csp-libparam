@@ -56,3 +56,6 @@ nav:
   - Architecture: architecture.md
   - Integration: integration.md
   - Adding parameters and services: extending.md
+  - Assurance:
+      - Requirements and verification: requirements-and-verification.md
+      - Verification evidence: verification-evidence.md

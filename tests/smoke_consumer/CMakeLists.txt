@@ -30,8 +30,9 @@ set(CSP_USE_RDP ON CACHE BOOL "" FORCE)
 set(FPRIME_ENABLE_FRAMEWORK_UTS OFF CACHE BOOL "" FORCE)
 set(FPRIME_ENABLE_AUTOCODER_UTS OFF CACHE BOOL "" FORCE)
 
-# This smoke test compiles only the Runtime wrapper. Its interface targets
-# provide the dependency headers without building either third-party library.
+# The libcsp interface target supplies headers needed by both wrappers without
+# building a platform transport. Dependencies.cmake builds the real pinned
+# libparam C target, so this consumer verifies that linkage as well.
 configure_file(
     "${CMAKE_CURRENT_LIST_DIR}/csp_autoconfig.h.in"
     "${CMAKE_CURRENT_BINARY_DIR}/include/csp/autoconfig.h"
@@ -44,8 +45,6 @@ target_include_directories(
         "${CMAKE_CURRENT_BINARY_DIR}/include"
         "${SMOKE_LIBCSP_SOURCE}/include"
 )
-add_library(fprimecsp_libparam_c INTERFACE)
-target_link_libraries(fprimecsp_libparam_c INTERFACE csp)
 
 include("${FPRIME_FRAMEWORK_PATH}/cmake/FPrime.cmake")
 fprime_setup_included_code()
@@ -53,4 +52,8 @@ fprime_setup_included_code()
 if(NOT TARGET FprimeCsp_Runtime)
     message(FATAL_ERROR
         "F Prime did not discover FprimeCsp_Runtime through library.cmake")
+endif()
+if(NOT TARGET FprimeCsp_Libparam)
+    message(FATAL_ERROR
+        "F Prime did not discover FprimeCsp_Libparam through library.cmake")
 endif()

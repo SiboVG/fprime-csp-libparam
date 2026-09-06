@@ -8,7 +8,7 @@ readonly CMAKE_EXECUTABLE="${CMAKE_COMMAND:-cmake}"
 usage() {
     echo "Usage: run_runtime_smoke.sh FPRIME_FRAMEWORK_PATH LIBCSP_SOURCE [BUILD_DIR]"
     echo
-    echo "Configure the checked-in F Prime consumer and build FprimeCsp_Runtime."
+    echo "Configure the checked-in F Prime consumer and build the reusable modules."
     echo "When BUILD_DIR is omitted, a temporary build directory is removed on exit."
 }
 
@@ -55,6 +55,6 @@ trap cleanup EXIT
     -B "$build_root" \
     -DSMOKE_FPRIME_FRAMEWORK_PATH="$fprime_source" \
     -DSMOKE_LIBCSP_SOURCE="$libcsp_source"
-"$CMAKE_EXECUTABLE" --build "$build_root" --target FprimeCsp_Runtime
+"$CMAKE_EXECUTABLE" --build "$build_root" --target FprimeCsp_Runtime FprimeCsp_Libparam
 
-echo "FprimeCsp_Runtime smoke build passed."
+echo "FprimeCsp Runtime and Libparam smoke build passed."

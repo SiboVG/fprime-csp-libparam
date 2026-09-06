@@ -14,3 +14,4 @@ register_fprime_library(
 
 target_compile_features(${FPRIME_CURRENT_MODULE} PUBLIC cxx_std_17)
 target_include_directories(${FPRIME_CURRENT_MODULE} PUBLIC "${FPRIMECSP_LIBRARY_ROOT}")
+fprimecsp_enable_strict_warnings(${FPRIME_CURRENT_MODULE})

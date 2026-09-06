@@ -24,6 +24,7 @@ PAGES_WORKFLOW = LIBRARY_ROOT / ".github" / "workflows" / "pages.yml"
 
 LIBCSP_COMMIT = "5a95e5c48826c3602bf4a34aa5d60e2af9e4a004"
 LIBPARAM_COMMIT = "d78da56e7cbc8b6be30d8890b6f01cdf80d0b9b9"
+FPRIME_COMMIT = "35d4c0e881482adf372b8eee3eb56ad2dee74618"
 RELEASE_TAG = "csh/2.10"
 
 MODULES = {
@@ -99,9 +100,18 @@ class RuntimeSmokeConsumerContract(unittest.TestCase):
             "FPRIME_LIBRARY_LOCATIONS",
             "library.cmake",
             "if(NOT TARGET FprimeCsp_Runtime)",
+            "if(NOT TARGET FprimeCsp_Libparam)",
         ):
             self.assertIn(token, cmake)
-        self.assertIn("--target FprimeCsp_Runtime", runner)
+        self.assertNotIn("add_library(fprimecsp_libparam_c INTERFACE)", cmake)
+        self.assertIn("--target FprimeCsp_Runtime FprimeCsp_Libparam", runner)
+        libparam_cmake = read("FprimeCsp/Libparam/CMakeLists.txt")
+        self.assertIn(
+            "target_link_libraries(${FPRIME_CURRENT_MODULE} PUBLIC ${FPRIMECSP_LIBPARAM_C_TARGET})",
+            libparam_cmake,
+        )
+        self.assertIn("C_STANDARD 11", libparam_cmake)
+        self.assertIn("$<$<COMPILE_LANGUAGE:C>:-std=c11>", libparam_cmake)
 
     def test_runtime_smoke_consumer_has_no_mission_specific_paths(self) -> None:
         self.assertTrue(SMOKE_RUNNER.is_file(), "runtime smoke runner is missing")
@@ -124,6 +134,17 @@ class RuntimeSmokeConsumerContract(unittest.TestCase):
             os.access(RUNNER, os.X_OK),
             "tests/run_repository_contracts.sh must be executable",
         )
+
+    def test_ci_builds_the_standalone_runtime_and_libparam_consumer(self) -> None:
+        workflow = read(".github/workflows/ci.yml")
+        for token in (
+            "standalone-consumer:",
+            "repository: nasa/fprime",
+            FPRIME_COMMIT,
+            "./scripts/bootstrap_dependencies.sh",
+            "./tests/run_runtime_smoke.sh",
+        ):
+            self.assertIn(token, workflow)
 
 
 class RepositoryIndependenceContract(unittest.TestCase):
@@ -205,6 +226,17 @@ class ReleaseContract(unittest.TestCase):
             "src/objstore/objstore.c",
         ):
             self.assertIn(source, dependencies)
+
+    def test_third_party_headers_are_system_includes_for_strict_consumers(self) -> None:
+        dependencies = read("cmake/Dependencies.cmake")
+        self.assertIn("INTERFACE_SYSTEM_INCLUDE_DIRECTORIES", dependencies)
+        self.assertRegex(
+            dependencies,
+            r"target_include_directories\(\s*\$\{FPRIMECSP_LIBPARAM_C_TARGET\}\s+SYSTEM\s+PUBLIC",
+        )
+        self.assertIn("cmake/compat/darwin", dependencies)
+        self.assertTrue((LIBRARY_ROOT / "cmake/compat/darwin/malloc.h").is_file())
+        self.assertTrue((LIBRARY_ROOT / "cmake/compat/darwin/endian.h").is_file())
 
     def test_libparam_bridge_port_tracks_upstream(self) -> None:
         bridge = read("FprimeCsp/Libparam/libparam_bridge.c")
@@ -312,6 +344,25 @@ class RuntimeSafetyContract(unittest.TestCase):
             socketcan.index("csp_can_socketcan_stop"),
         )
 
+    def test_shutdown_reports_partial_failure_and_preserves_transport_order(self) -> None:
+        header = read("FprimeCsp/Runtime/Stack.hpp")
+        source = read("FprimeCsp/Runtime/Stack.cpp")
+        self.assertIn("enum class ShutdownStatus", header)
+        self.assertIn("ROUTER_JOIN_FAILED", header)
+        self.assertIn("TRANSPORT_CLOSE_FAILED", header)
+        self.assertLess(source.index("this->join()"), source.index("m_transport->close()"))
+        self.assertIn("std::terminate()", source)
+
+    def test_production_modules_enable_strict_compiler_warnings(self) -> None:
+        manifest = read("library.cmake")
+        self.assertIn("fprimecsp_enable_strict_warnings", manifest)
+        self.assertIn("-Werror", manifest)
+        for module in MODULES:
+            self.assertIn(
+                "fprimecsp_enable_strict_warnings(${FPRIME_CURRENT_MODULE})",
+                read(f"FprimeCsp/{module}/CMakeLists.txt"),
+            )
+
 
 class DocumentationContract(unittest.TestCase):
     def test_repository_owns_its_documentation_interface(self) -> None:
@@ -321,11 +372,60 @@ class DocumentationContract(unittest.TestCase):
         gitignore = read(".gitignore")
 
         self.assertIn("strict: true", mkdocs)
-        for page in ("index.md", "architecture.md", "integration.md", "extending.md"):
+        for page in (
+            "index.md",
+            "architecture.md",
+            "integration.md",
+            "extending.md",
+            "requirements-and-verification.md",
+            "verification-evidence.md",
+        ):
             self.assertIn(page, mkdocs)
         self.assertIn("mkdocs-material", requirements)
         self.assertIn("fprime-csp-libparam", index)
         self.assertIn("site/", gitignore)
+
+    def test_integration_guide_matches_supported_host_profiles(self) -> None:
+        integration = read("docs/integration.md")
+        normalized = " ".join(integration.split())
+        self.assertIn(
+            "Runtime and Libparam host builds are supported on Linux and Darwin",
+            normalized,
+        )
+        self.assertIn("SocketCAN remains Linux-only", normalized)
+        self.assertNotIn(
+            "Linux is the supported target for this bundled profile",
+            normalized,
+        )
+
+    def test_docs_summarize_current_runtime_portability_and_assurance(self) -> None:
+        readme = " ".join(read("README.md").split())
+        index = " ".join(read("docs/index.md").split())
+        evidence = " ".join(read("docs/verification-evidence.md").split())
+
+        for token in (
+            "ShutdownStatus",
+            "two-phase SocketCAN",
+            "pullInteger",
+            "Linux and Darwin",
+            "SocketCAN remains Linux-only",
+        ):
+            with self.subTest(index_token=token):
+                self.assertIn(token, index)
+
+        for token in ("standalone consumer", "coverage", "static analysis"):
+            with self.subTest(readme_token=token):
+                self.assertIn(token, readme)
+
+        for token in (
+            "Standalone F Prime consumer",
+            "80% production line-coverage gate",
+            "clang-tidy",
+            "Linux `vcan`",
+            "Pending hardware execution",
+        ):
+            with self.subTest(evidence_token=token):
+                self.assertIn(token, evidence)
 
     def test_github_pages_publishes_the_strict_mkdocs_artifact(self) -> None:
         self.assertTrue(
@@ -425,6 +525,49 @@ class DocumentationContract(unittest.TestCase):
         self.assertIn("parameter", extending)
         self.assertIn("service", extending)
 
+    def test_requirements_matrix_is_explicit_and_hardware_status_is_honest(self) -> None:
+        matrix = read("docs/requirements-and-verification.md")
+        for requirement_id in (
+            "FCL-ARCH-001",
+            "FCL-RUN-001",
+            "FCL-RUN-002",
+            "FCL-RUN-003",
+            "FCL-CSP-001",
+            "FCL-CAN-001",
+            "FCL-PAR-001",
+            "FCL-LEG-001",
+            "FCL-INT-001",
+            "FCL-HIL-001",
+        ):
+            self.assertIn(requirement_id, matrix)
+        self.assertIn("Pending hardware execution", matrix)
+
+    def test_verification_guide_separates_ci_from_hardware_evidence(self) -> None:
+        guide = " ".join(read("docs/verification-evidence.md").lower().split())
+        self.assertIn("unit tests", guide)
+        self.assertIn("sanitizers", guide)
+        self.assertIn("coverage", guide)
+        self.assertIn("static analysis", guide)
+        self.assertIn("hardware-in-the-loop", guide)
+        self.assertIn("must not be marked verified", guide)
+
+    def test_ci_has_coverage_and_static_analysis_gates(self) -> None:
+        workflow = read(".github/workflows/ci.yml")
+        for token in (
+            "coverage:",
+            "gcovr",
+            "-DFPRIMECSP_ENABLE_COVERAGE=ON",
+            "--fail-under-line 80",
+            "static-analysis:",
+            "clang-tidy",
+            "--warnings-as-errors=*",
+        ):
+            self.assertIn(token, workflow)
+        self.assertIn(
+            "option(FPRIMECSP_ENABLE_COVERAGE",
+            read("tests/unit/CMakeLists.txt"),
+        )
+
     def test_architecture_is_the_authoritative_protocol_and_f_prime_explanation(
         self,
     ) -> None:
@@ -459,6 +602,74 @@ class DocumentationContract(unittest.TestCase):
         self.assertGreaterEqual(architecture.count("```mermaid"), 3)
         for diagram in re.findall(r"```mermaid\n(.*?)```", architecture, re.DOTALL):
             self.assertNotIn(r"\n", diagram)
+
+    def test_sequence_diagram_labels_are_wrapped_for_document_width(self) -> None:
+        architecture = read("docs/architecture.md")
+        sequence_diagrams = [
+            diagram
+            for diagram in re.findall(r"```mermaid\n(.*?)```", architecture, re.DOTALL)
+            if diagram.lstrip().startswith("sequenceDiagram")
+        ]
+
+        self.assertTrue(sequence_diagrams)
+        for diagram in sequence_diagrams:
+            self.assertNotRegex(
+                diagram,
+                r"(?m)^\s*(\w+)->>\1:",
+                "Mermaid centers self-message labels on the actor lifeline",
+            )
+            participants = re.findall(
+                r"^\s*participant\s+\S+\s+as\s+(.+)$", diagram, re.MULTILINE
+            )
+            messages = re.findall(
+                r"^\s*\S+\s*-+>>\s*\S+\s*:\s*(.+)$", diagram, re.MULTILINE
+            )
+
+            for label in participants:
+                for line in re.split(r"<br\s*/?>", label):
+                    with self.subTest(participant_line=line):
+                        self.assertLessEqual(len(line), 22)
+            for label in messages:
+                for line in re.split(r"<br\s*/?>", label):
+                    with self.subTest(message_line=line):
+                        self.assertLessEqual(len(line), 30)
+
+    def test_overview_diagram_avoids_subgraph_heading_collisions(self) -> None:
+        architecture = read("docs/architecture.md")
+        diagrams = re.findall(r"```mermaid\n(.*?)```", architecture, re.DOTALL)
+
+        self.assertTrue(diagrams)
+        self.assertNotIn(
+            "subgraph ",
+            diagrams[0],
+            "cross-path arrows otherwise run through centered subgraph headings",
+        )
+
+    def test_mermaid_diagrams_defer_colors_to_the_active_theme(self) -> None:
+        architecture = read("docs/architecture.md")
+        diagrams = re.findall(r"```mermaid\n(.*?)```", architecture, re.DOTALL)
+
+        self.assertTrue(diagrams)
+        for diagram in diagrams:
+            self.assertNotRegex(
+                diagram,
+                r"(?i)\b(?:fill|stroke|color)\s*:",
+                "fixed Mermaid colors do not adapt to Material light/dark palettes",
+            )
+
+    def test_flowchart_node_lines_are_short_enough_for_narrow_pages(self) -> None:
+        architecture = read("docs/architecture.md")
+        diagrams = re.findall(r"```mermaid\n(.*?)```", architecture, re.DOTALL)
+
+        for diagram in diagrams:
+            labels = re.findall(
+                r'\b[A-Za-z_][A-Za-z0-9_]*\[(?:"([^"]*)"|([^\]]*))\]',
+                diagram,
+            )
+            for quoted, plain in labels:
+                for line in re.split(r"<br\s*/?>", quoted or plain):
+                    with self.subTest(label_line=line):
+                        self.assertLessEqual(len(line.strip()), 22)
 
     def test_architecture_names_and_links_the_relevant_f_prime_classes(self) -> None:
         architecture = read("docs/architecture.md")
@@ -552,12 +763,14 @@ class DocumentationContract(unittest.TestCase):
 
     def test_high_level_diagram_stacks_the_two_paths_for_readability(self) -> None:
         architecture = read("docs/architecture.md")
+        overview = re.findall(
+            r"```mermaid\n(.*?)```", architecture, re.DOTALL
+        )[0]
 
-        self.assertIn(
-            'flowchart TB\n  subgraph GroundPath["F Prime control and observability"]',
-            architecture,
-        )
-        self.assertGreaterEqual(architecture.count("direction LR"), 2)
+        self.assertTrue(overview.startswith("flowchart TB\n"))
+        self.assertIn('GROUND["F PRIME CONTROL +<br/>OBSERVABILITY', overview)
+        self.assertIn('API["CSP + LIBPARAM<br/>PACKET PATH', overview)
+        self.assertLess(overview.index("GROUND["), overview.index("API["))
 
 
 class BoundedShutdownContract(unittest.TestCase):

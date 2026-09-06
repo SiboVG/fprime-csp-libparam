@@ -4,6 +4,8 @@ project(FprimeCspHostUnitTests LANGUAGES C CXX)
 include(CTest)
 find_package(Threads REQUIRED)
 
+option(FPRIMECSP_ENABLE_COVERAGE "Instrument test targets for gcov coverage" OFF)
+
 set(FPRIMECSP_ROOT "${CMAKE_CURRENT_LIST_DIR}/../..")
 set(TEST_INCLUDE "${CMAKE_CURRENT_LIST_DIR}/fakes/include")
 
@@ -24,6 +26,14 @@ function(fprimecsp_test_options target)
     target_compile_features(${target} PRIVATE cxx_std_17)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
         target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic -Werror)
+    endif()
+    if(FPRIMECSP_ENABLE_COVERAGE)
+        if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+            target_compile_options(${target} PRIVATE --coverage)
+            target_link_options(${target} PRIVATE --coverage)
+        else()
+            message(FATAL_ERROR "FPRIMECSP_ENABLE_COVERAGE requires Clang or GCC")
+        endif()
     endif()
 endfunction()
 
@@ -69,6 +79,8 @@ add_scenarios(stack_tests
     service_handler_binding_is_idempotent
     router_runs_stops_and_joins
     router_start_error_is_reported
+    shutdown_defers_transport_close_until_router_join_succeeds
+    shutdown_retries_transport_close_failure
     ping_uses_crc32_and_requires_initialization
 )
 
@@ -79,6 +91,7 @@ add_scenarios(socketcan_tests
     success_without_interface_is_rejected
     close_removes_then_stops_interface
     stop_failure_keeps_interface_for_retry
+    remove_failure_defers_driver_stop_until_retry
     empty_device_is_rejected_before_driver_call
 )
 
@@ -88,6 +101,7 @@ add_scenarios(libparam_tests
     pull_u32_forwards_request_and_reads_on_success
     pull_u32_preserves_output_on_failure
     push_u32_forwards_value_and_ack_policy
+    legacy_u32_operations_reject_unsafe_descriptors_and_timeouts_before_io
     pull_integer_forwards_indexed_typed_requests
     pull_integer_preserves_output_on_failure
     push_integer_forwards_indexed_typed_values
@@ -102,5 +116,6 @@ add_scenarios(libparam_tests
     push_integer_rejects_out_of_range_values_before_io
     invalid_protocol_version_is_rejected
     bridge_guards_null_inputs
+    bridge_rejects_invalid_protocol_versions
     bridge_serves_non_null_packets
 )

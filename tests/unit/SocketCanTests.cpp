@@ -98,9 +98,34 @@ void stopFailureKeepsInterfaceForRetry() {
     FprimeCsp::Stack stack;
     EXPECT_TRUE(stack.initialize(validStackConfig(), transport));
 
-    stack.shutdown();
+    EXPECT_TRUE(stack.shutdown() == FprimeCsp::ShutdownStatus::TRANSPORT_CLOSE_FAILED);
     EXPECT_TRUE(transport.isOpen());
     EXPECT_EQ(stack.lastError(), CSP_ERR_DRIVER);
+
+    TestDoubles::cspState().stopStatus = CSP_ERR_NONE;
+    EXPECT_TRUE(stack.shutdown() == FprimeCsp::ShutdownStatus::COMPLETE);
+    EXPECT_FALSE(transport.isOpen());
+    EXPECT_EQ(TestDoubles::cspState().removeCalls, 1);
+    EXPECT_EQ(TestDoubles::cspState().stopCalls, 2);
+}
+
+void removeFailureDefersDriverStopUntilRetry() {
+    TestDoubles::resetCsp();
+    TestDoubles::cspState().removeStatus = CSP_ERR_DRIVER;
+    FprimeCsp::SocketCanTransport transport({});
+    FprimeCsp::Stack stack;
+    EXPECT_TRUE(stack.initialize(validStackConfig(), transport));
+
+    EXPECT_TRUE(stack.shutdown() == FprimeCsp::ShutdownStatus::TRANSPORT_CLOSE_FAILED);
+    EXPECT_TRUE(transport.isOpen());
+    EXPECT_EQ(TestDoubles::cspState().removeCalls, 1);
+    EXPECT_EQ(TestDoubles::cspState().stopCalls, 0);
+
+    TestDoubles::cspState().removeStatus = CSP_ERR_NONE;
+    EXPECT_TRUE(stack.shutdown() == FprimeCsp::ShutdownStatus::COMPLETE);
+    EXPECT_FALSE(transport.isOpen());
+    EXPECT_EQ(TestDoubles::cspState().removeCalls, 2);
+    EXPECT_EQ(TestDoubles::cspState().stopCalls, 1);
 }
 
 void emptyDeviceIsRejectedBeforeDriverCall() {
@@ -128,5 +153,6 @@ int main(int argc, char** argv) {
          {"success_without_interface_is_rejected", successWithoutInterfaceIsRejected},
          {"close_removes_then_stops_interface", closeRemovesThenStopsInterface},
          {"stop_failure_keeps_interface_for_retry", stopFailureKeepsInterfaceForRetry},
+         {"remove_failure_defers_driver_stop_until_retry", removeFailureDefersDriverStopUntilRetry},
          {"empty_device_is_rejected_before_driver_call", emptyDeviceIsRejectedBeforeDriverCall}});
 }

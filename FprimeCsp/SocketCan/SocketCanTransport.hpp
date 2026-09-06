@@ -34,6 +34,7 @@ class SocketCanTransport final : public Transport {
 
     SocketCanConfig m_config;
     csp_iface_t* m_interface = nullptr;
+    bool m_interfaceRegistered = false;
 };
 
 }  // namespace FprimeCsp

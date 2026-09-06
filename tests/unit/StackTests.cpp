@@ -180,6 +180,48 @@ void routerStartErrorIsReported() {
     EXPECT_EQ(Os::Test::taskJoinCalls, static_cast<std::size_t>(0));
 }
 
+void shutdownDefersTransportCloseUntilRouterJoinSucceeds() {
+    TestDoubles::resetCsp();
+    Os::Test::resetTaskFake();
+    RecordingTransport transport;
+    FprimeCsp::Stack stack;
+    EXPECT_TRUE(stack.initialize(validConfig(), transport));
+    EXPECT_TRUE(stack.startRouter());
+
+    Os::Test::taskJoinStatus = Os::Task::JOIN_ERROR;
+    EXPECT_EQ(static_cast<int>(stack.shutdown()),
+              static_cast<int>(FprimeCsp::ShutdownStatus::ROUTER_JOIN_FAILED));
+    EXPECT_EQ(transport.closeCalls, 0);
+    EXPECT_TRUE(stack.isInitialized());
+    EXPECT_EQ(stack.lastError(), static_cast<int>(Os::Task::JOIN_ERROR));
+
+    Os::Test::taskJoinStatus = Os::Task::OP_OK;
+    EXPECT_EQ(static_cast<int>(stack.shutdown()),
+              static_cast<int>(FprimeCsp::ShutdownStatus::COMPLETE));
+    EXPECT_EQ(transport.closeCalls, 1);
+    EXPECT_FALSE(stack.isInitialized());
+}
+
+void shutdownRetriesTransportCloseFailure() {
+    TestDoubles::resetCsp();
+    Os::Test::resetTaskFake();
+    RecordingTransport transport;
+    transport.closeStatus = CSP_ERR_DRIVER;
+    FprimeCsp::Stack stack;
+    EXPECT_TRUE(stack.initialize(validConfig(), transport));
+
+    EXPECT_EQ(static_cast<int>(stack.shutdown()),
+              static_cast<int>(FprimeCsp::ShutdownStatus::TRANSPORT_CLOSE_FAILED));
+    EXPECT_EQ(transport.closeCalls, 1);
+    EXPECT_TRUE(stack.isInitialized());
+
+    transport.closeStatus = CSP_ERR_NONE;
+    EXPECT_EQ(static_cast<int>(stack.shutdown()),
+              static_cast<int>(FprimeCsp::ShutdownStatus::COMPLETE));
+    EXPECT_EQ(transport.closeCalls, 2);
+    EXPECT_FALSE(stack.isInitialized());
+}
+
 void pingUsesCrc32AndRequiresInitialization() {
     TestDoubles::resetCsp();
     RecordingTransport transport;
@@ -210,5 +252,8 @@ int main(int argc, char** argv) {
          {"service_handler_binding_is_idempotent", serviceHandlerBindingIsIdempotent},
          {"router_runs_stops_and_joins", routerRunsStopsAndJoins},
          {"router_start_error_is_reported", routerStartErrorIsReported},
+         {"shutdown_defers_transport_close_until_router_join_succeeds",
+          shutdownDefersTransportCloseUntilRouterJoinSucceeds},
+         {"shutdown_retries_transport_close_failure", shutdownRetriesTransportCloseFailure},
          {"ping_uses_crc32_and_requires_initialization", pingUsesCrc32AndRequiresInitialization}});
 }

@@ -131,18 +131,37 @@ void pushU32ForwardsValueAndAckPolicy() {
     auto parameter = descriptor();
     FprimeCsp::Client client(1);
 
-    EXPECT_TRUE(client.pushU32(parameter, 55, 321, 0xDEADBEEFU));
+    EXPECT_TRUE(client.pushU32(parameter, 71, 321, 0xDEADBEEFU));
     const auto& state = TestDoubles::paramState();
     EXPECT_EQ(state.pushCalls, 1);
     EXPECT_TRUE(state.pushParameter == &parameter);
     EXPECT_EQ(state.pushOffset, -1);
     EXPECT_EQ(state.pushPriority, CSP_PRIO_NORM);
     EXPECT_EQ(state.pushVerbose, 0);
-    EXPECT_EQ(state.pushHost, 55);
+    EXPECT_EQ(state.pushHost, 71);
     EXPECT_EQ(state.pushTimeout, 321);
     EXPECT_EQ(state.pushVersion, 1);
     EXPECT_TRUE(state.pushAckWithPull);
     EXPECT_EQ(state.pushedValue, 0xDEADBEEFU);
+}
+
+void legacyU32OperationsRejectUnsafeDescriptorsAndTimeoutsBeforeIo() {
+    TestDoubles::resetParam();
+    auto parameter = descriptor();
+    FprimeCsp::Client client;
+    std::uint32_t value = 77;
+
+    EXPECT_FALSE(client.pullU32(
+        parameter, 71, static_cast<std::uint32_t>(std::numeric_limits<int>::max()) + 1U, value));
+    EXPECT_EQ(TestDoubles::paramState().pullCalls, 0);
+    EXPECT_EQ(value, 77U);
+
+    EXPECT_FALSE(client.pushU32(parameter, 72, 100, 11U));
+    EXPECT_EQ(TestDoubles::paramState().pushCalls, 0);
+
+    parameter.type = PARAM_TYPE_INT32;
+    EXPECT_FALSE(client.pullU32(parameter, 71, 100, value));
+    EXPECT_EQ(TestDoubles::paramState().pullCalls, 0);
 }
 
 void pullIntegerForwardsIndexedTypedRequests() {
@@ -436,6 +455,34 @@ void bridgeGuardsNullInputs() {
     EXPECT_EQ(TestDoubles::paramState().serveCalls, 0);
 }
 
+void bridgeRejectsInvalidProtocolVersions() {
+    TestDoubles::resetParam();
+    auto parameter = descriptor();
+    std::uint32_t scalarValue = 44;
+    std::int64_t integerValue = 55;
+
+    const int invalidProtocolVersions[] = {0, 3};
+    for (const int protocolVersion : invalidProtocolVersions) {
+        EXPECT_EQ(fprimecsp_param_pull_u32(
+                      &parameter, 71, 100, protocolVersion, &scalarValue),
+                  -1);
+        EXPECT_EQ(fprimecsp_param_push_u32(
+                      &parameter, 71, 100, protocolVersion, 11),
+                  -1);
+        EXPECT_EQ(fprimecsp_param_pull_integer(
+                      &parameter, 71, 100, protocolVersion, 0, &integerValue),
+                  -1);
+        EXPECT_EQ(fprimecsp_param_push_integer(
+                      &parameter, 71, 100, protocolVersion, 0, 11),
+                  -1);
+    }
+
+    EXPECT_EQ(scalarValue, 44U);
+    EXPECT_EQ(integerValue, 55);
+    EXPECT_EQ(TestDoubles::paramState().pullCalls, 0);
+    EXPECT_EQ(TestDoubles::paramState().pushCalls, 0);
+}
+
 void bridgeServesNonNullPackets() {
     TestDoubles::resetParam();
     csp_packet_t packet{};
@@ -455,6 +502,8 @@ int main(int argc, char** argv) {
          {"pull_u32_forwards_request_and_reads_on_success", pullU32ForwardsRequestAndReadsOnSuccess},
          {"pull_u32_preserves_output_on_failure", pullU32PreservesOutputOnFailure},
          {"push_u32_forwards_value_and_ack_policy", pushU32ForwardsValueAndAckPolicy},
+         {"legacy_u32_operations_reject_unsafe_descriptors_and_timeouts_before_io",
+          legacyU32OperationsRejectUnsafeDescriptorsAndTimeoutsBeforeIo},
          {"pull_integer_forwards_indexed_typed_requests", pullIntegerForwardsIndexedTypedRequests},
          {"pull_integer_preserves_output_on_failure", pullIntegerPreservesOutputOnFailure},
          {"push_integer_forwards_indexed_typed_values", pushIntegerForwardsIndexedTypedValues},
@@ -469,5 +518,6 @@ int main(int argc, char** argv) {
          {"push_integer_rejects_out_of_range_values_before_io", pushIntegerRejectsOutOfRangeValuesBeforeIo},
          {"invalid_protocol_version_is_rejected", invalidProtocolVersionIsRejected},
          {"bridge_guards_null_inputs", bridgeGuardsNullInputs},
+         {"bridge_rejects_invalid_protocol_versions", bridgeRejectsInvalidProtocolVersions},
          {"bridge_serves_non_null_packets", bridgeServesNonNullPackets}});
 }

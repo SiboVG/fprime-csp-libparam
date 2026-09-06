@@ -42,6 +42,13 @@ struct StackConfig {
     std::uint8_t deduplication = CSP_DEDUP_OFF;
 };
 
+/** Result of an ordered router and transport shutdown attempt. */
+enum class ShutdownStatus : std::uint8_t {
+    COMPLETE = 0,
+    ROUTER_JOIN_FAILED = 1,
+    TRANSPORT_CLOSE_FAILED = 2,
+};
+
 /**
  * Sole owner of libcsp's process-global state and router task.
  *
@@ -64,7 +71,7 @@ class Stack final {
     bool startRouter();
     void requestStop();
     bool join();
-    void shutdown();
+    ShutdownStatus shutdown();
 
     int ping(std::uint16_t peerNode, std::uint32_t timeoutMs, std::uint32_t payloadBytes) const;
 

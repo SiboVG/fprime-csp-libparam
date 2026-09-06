@@ -124,6 +124,20 @@ endif()
 if(NOT TARGET csp)
     message(FATAL_ERROR "libcsp did not provide the expected 'csp' target")
 endif()
+
+# Dependency headers must not inherit this library's warnings-as-errors policy.
+# Keep strict diagnostics on FprimeCsp sources while treating libcsp's public
+# headers as the third-party interface they are (libcsp intentionally uses GNU
+# anonymous unions in its wire types).
+get_target_property(FPRIMECSP_LIBCSP_PUBLIC_INCLUDES csp INTERFACE_INCLUDE_DIRECTORIES)
+if(FPRIMECSP_LIBCSP_PUBLIC_INCLUDES)
+    set_property(
+        TARGET csp
+        APPEND
+        PROPERTY INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${FPRIMECSP_LIBCSP_PUBLIC_INCLUDES}"
+    )
+endif()
+
 if(FPRIMECSP_REQUIRE_BOUNDED_ROUTE_WORK AND (NOT DEFINED CSP_USE_RDP OR NOT CSP_USE_RDP))
     message(FATAL_ERROR
         "CSP_USE_RDP must be ON for bounded FprimeCsp router shutdown.")
@@ -184,14 +198,24 @@ if(NOT TARGET ${FPRIMECSP_LIBPARAM_C_TARGET})
     )
     target_include_directories(
         ${FPRIMECSP_LIBPARAM_C_TARGET}
+        SYSTEM
         PUBLIC
             "${FPRIMECSP_LIBPARAM_CONFIG_DIR}"
             "${FPRIMECSP_LIBPARAM_SOURCE}/include"
             "${FPRIMECSP_LIBPARAM_SOURCE}"
+    )
+    target_include_directories(
+        ${FPRIMECSP_LIBPARAM_C_TARGET}
         PRIVATE
             "${FPRIMECSP_LIBPARAM_SOURCE}/src"
             "${FPRIMECSP_LIBPARAM_SOURCE}/src/param/list"
     )
+    if(APPLE)
+        target_include_directories(
+            ${FPRIMECSP_LIBPARAM_C_TARGET}
+            BEFORE PUBLIC "${FPRIMECSP_LIBRARY_ROOT}/cmake/compat/darwin"
+        )
+    endif()
     target_compile_options(${FPRIMECSP_LIBPARAM_C_TARGET} PRIVATE -Wall -Wextra)
     target_link_libraries(${FPRIMECSP_LIBPARAM_C_TARGET} PUBLIC csp Threads::Threads)
 

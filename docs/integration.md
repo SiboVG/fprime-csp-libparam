@@ -75,9 +75,11 @@ dependencies.
 ### Build-profile constraints
 
 The bundled libparam configuration uses a dynamic descriptor list and needs
-`<sys/queue.h>`; the pinned sources also contain Linux-oriented headers. Its
-API does not depend on SocketCAN, but Linux is the supported target for this
-bundled profile. Set `FPRIMECSP_LIBPARAM_CONFIG_DIR` to select another generated
+`<sys/queue.h>`; the pinned sources also contain Linux-oriented headers.
+Runtime and Libparam host builds are supported on Linux and Darwin. The package
+provides scoped Darwin compatibility definitions for the Linux `<malloc.h>`
+and `<endian.h>` APIs used by the pinned dependency. SocketCAN remains
+Linux-only. Set `FPRIMECSP_LIBPARAM_CONFIG_DIR` to select another generated
 `libparam.h`; an embedded application must still port and qualify the upstream
 sources around that configuration.
 
@@ -167,9 +169,11 @@ class ProtocolAdapter final {
             m_lastError = m_stack.lastError();
             return false;
         }
-        m_stack.shutdown();
+        const auto status = m_stack.shutdown();
         m_lastError = m_stack.lastError();
-        return m_lastError == 0;
+        // If this fails, retain this object and the transport. Retry shutdown
+        // or use terminal process handling; never continue normal destruction.
+        return status == FprimeCsp::ShutdownStatus::COMPLETE;
     }
 
     int ping(std::uint16_t peer, std::uint32_t timeoutMs) const {

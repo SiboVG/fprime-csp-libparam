@@ -71,11 +71,13 @@ the SocketCAN module is Linux-specific and requires the host
 SocketCAN/libsocketcan dependencies.
 
 The bundled libparam CMake configuration currently enables its dynamic
-descriptor list, which requires `<sys/queue.h>`, and the pinned sources contain
-other Linux-oriented headers. Linux is the supported build target for this
-first release. `FPRIMECSP_LIBPARAM_CONFIG_DIR` can select another generated
-`libparam.h` profile, but an embedded target must still port and qualify the
-upstream sources before treating the module as flight code.
+descriptor list, which requires `<sys/queue.h>`. Runtime and Libparam host
+builds are supported on Linux and Darwin; the package supplies scoped Darwin
+compatibility definitions for the Linux `<malloc.h>` and `<endian.h>` APIs used
+by the pinned dependency. SocketCAN remains Linux-only.
+`FPRIMECSP_LIBPARAM_CONFIG_DIR` can select another generated `libparam.h`
+profile, but an embedded target must still port and qualify the upstream
+sources before treating the module as flight code.
 
 If a consumer supplies an existing `csp` CMake target, it must also declare
 `CSP_USE_RDP=ON`. This gives `csp_route_work()` a bounded wake-up interval so
@@ -101,6 +103,13 @@ contracts use only Python's standard library and CMake:
 ./tests/run_repository_contracts.sh
 ```
 
+The checked-in standalone consumer verifies that F Prime discovers the library
+manifest and compiles both reusable modules against the pinned dependencies:
+
+```bash
+./tests/run_runtime_smoke.sh /path/to/fprime /path/to/libcsp
+```
+
 Serve the documentation locally with:
 
 ```bash
@@ -113,11 +122,12 @@ mkdocs serve
 Use `mkdocs build --strict --clean` for the same documentation check run by
 continuous integration.
 
-On trusted pushes, CI also checks out the private downstream acceptance
-consumer, builds its full F Prime deployment, and verifies CSP ping plus
-libparam pull, push, read-back, and restoration over Linux `vcan`. Repository
-pull requests still run the C++ unit tests, sanitizers, contracts, and strict
-documentation build without exposing the cross-repository deploy key.
+Every pull request runs the C++ unit tests, sanitizers, repository contracts,
+standalone consumer build, 80% production line-coverage gate, `clang-tidy`
+static analysis, and strict documentation build. On trusted pushes, CI also
+checks out the private downstream acceptance consumer, builds its full F Prime
+deployment, and verifies CSP ping plus libparam pull, push, read-back, and
+restoration over Linux `vcan` without exposing its deploy key to pull requests.
 
 The Pages workflow publishes to
 [sibovg.github.io/fprime-csp-libparam](https://sibovg.github.io/fprime-csp-libparam/)
@@ -134,7 +144,9 @@ GitHub Enterprise.
   specific port. `Stack` retains a pointer to that `Transport`, so the transport
   object must remain alive through `Stack::shutdown()`.
 - `Stack::startRouter()`, `requestStop()`, `join()`, and `shutdown()` provide
-  the ordered task lifetime. `ping()` is the basic synchronous CSP probe.
+  the ordered task lifetime. `shutdown()` returns a `ShutdownStatus`; callers
+  must retain the transport and retry or terminate safely when router join or
+  transport close fails. `ping()` is the basic synchronous CSP probe.
 - `SocketCanTransport(SocketCanConfig)` attaches an already configured Linux
   CAN interface. `Stack` alone invokes the transport's private open/close
   lifecycle.
@@ -179,7 +191,8 @@ The library deliberately does not define:
 - retries, pass/fail criteria, safe-mode behavior, or fault response.
 
 See [architecture and boundaries](docs/architecture.md), [integration](docs/integration.md),
-and [adding parameters and services](docs/extending.md). Consumers should keep
+[adding parameters and services](docs/extending.md), and the
+[requirements matrix](docs/requirements-and-verification.md). Consumers should keep
 their transport, peer, and mission-policy acceptance tests in their own
 repositories.
 

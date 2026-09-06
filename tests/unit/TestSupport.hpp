@@ -70,4 +70,3 @@ inline int runSelected(int argc, char** argv, const std::initializer_list<Scenar
 
 #define EXPECT_EQ(actual, expected)                                                                                    \
     TestSupport::expectEqual((actual), (expected), #actual, #expected, __FILE__, __LINE__)
-

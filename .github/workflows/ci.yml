@@ -19,6 +19,35 @@ jobs:
       - name: Run C++ unit tests
         run: ctest --test-dir build-unit-tests --output-on-failure
 
+  standalone-consumer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Check out the tested F Prime revision
+        uses: actions/checkout@v7
+        with:
+          repository: nasa/fprime
+          ref: 35d4c0e881482adf372b8eee3eb56ad2dee74618
+          path: fprime
+          submodules: recursive
+          persist-credentials: false
+      - name: Install native dependencies
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install -y pkg-config libbsd-dev
+      - name: Bootstrap pinned libcsp and libparam
+        run: ./scripts/bootstrap_dependencies.sh
+      - name: Install F Prime build tools
+        run: python -m pip install -r fprime/requirements.txt
+      - name: Build the standalone Runtime and Libparam consumer
+        run: >-
+          ./tests/run_runtime_smoke.sh
+          "$GITHUB_WORKSPACE/fprime"
+          "$GITHUB_WORKSPACE/lib/libcsp"
+
   sanitizers:
     runs-on: ubuntu-24.04
     steps:
@@ -37,6 +66,55 @@ jobs:
         env:
           ASAN_OPTIONS: halt_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+
+  coverage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install coverage tooling
+        run: python -m pip install "gcovr==8.6"
+      - name: Configure coverage build
+        run: >-
+          cmake -S tests/unit -B build-coverage -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DFPRIMECSP_ENABLE_COVERAGE=ON
+      - name: Build and run coverage tests
+        run: >-
+          cmake --build build-coverage &&
+          ctest --test-dir build-coverage --output-on-failure
+      - name: Enforce production line coverage
+        run: >-
+          gcovr --root . --object-directory build-coverage
+          --filter 'FprimeCsp/' --exclude 'tests/'
+          --fail-under-line 80 --xml-pretty --output coverage.xml
+          build-coverage
+      - uses: actions/upload-artifact@v7
+        with:
+          name: fprime-csp-libparam-coverage
+          path: coverage.xml
+          if-no-files-found: error
+
+  static-analysis:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install static-analysis tooling
+        run: sudo apt-get update && sudo apt-get install -y clang-tidy ninja-build
+      - name: Generate compilation database
+        run: >-
+          cmake -S tests/unit -B build-static-analysis -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+      - name: Analyze production sources
+        run: >-
+          clang-tidy --warnings-as-errors=* -p build-static-analysis
+          FprimeCsp/Runtime/Stack.cpp
+          FprimeCsp/SocketCan/SocketCanTransport.cpp
+          FprimeCsp/Libparam/Libparam.cpp
+          FprimeCsp/Libparam/libparam_bridge.c
 
   integration-consumer:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -120,7 +198,7 @@ jobs:
           sudo ./scripts/setup_vcan.sh down cspvcan0; fi
       - name: Upload consumer integration logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: consumer-vcan-integration-logs
           path: CspLibparamFprimeTest/integration-logs

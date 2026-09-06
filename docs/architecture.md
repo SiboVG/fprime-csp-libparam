@@ -77,22 +77,23 @@ or output ports are touched.
 
 ```mermaid
 flowchart TB
-  subgraph GroundPath["F Prime control and observability"]
-    direction LR
-    GROUND["Ground system"] <--> COMMS["F Prime communications<br/>and system services"]
-    COMMS -->|"dispatched command"| APP["Application component<br/>mission policy"]
-    APP -->|"response, telemetry,<br/>and events"| COMMS
-  end
+  GROUND["F PRIME CONTROL +<br/>OBSERVABILITY<br/>Ground system"]
+  COMMS["F Prime communications<br/>and system services"]
+  APP["APPLICATION COMPONENT<br/>mission policy"]
+  API["CSP + LIBPARAM<br/>PACKET PATH<br/>library mechanics"]
+  PROTOCOL["libparam over libcsp"]
+  LINK["Transport<br/>SocketCAN or<br/>target adapter"]
+  PEER["CSP peer"]
 
-  subgraph CspPath["CSP and libparam packet path"]
-    direction LR
-    API["fprime-csp-libparam<br/>reusable mechanics"] --> PROTOCOL["libparam over libcsp"]
-    PROTOCOL <--> LINK["Transport<br/>SocketCAN or target-specific"]
-    LINK <--> PEER["CSP peer"]
-  end
+  GROUND <--> COMMS
+  COMMS -->|"command"| APP
+  APP -->|"response / telemetry /<br/>events"| COMMS
+  APP -->|"client call /<br/>queued request"| API
+  API -->|"status /<br/>copied value"| APP
+  API --> PROTOCOL
+  PROTOCOL <--> LINK
+  LINK <--> PEER
 
-  APP -->|"client call or queued request"| API
-  API -->|"status or copied value"| APP
 ```
 
 The library does not tunnel F Prime packets through CSP and does not turn CSP
@@ -106,13 +107,13 @@ parts they need.
 
 ```mermaid
 flowchart TB
-  APP["Application-owned adapter<br/>schema, policy, FPP interface"]
-  LP["FprimeCsp_Libparam<br/>Registry, Server, Client"]
-  RT["FprimeCsp_Runtime<br/>Stack and Transport interface"]
+  APP["Application adapter<br/>schema + policy<br/>FPP interface"]
+  LP["FprimeCsp_Libparam<br/>Registry + Server<br/>Client"]
+  RT["FprimeCsp_Runtime<br/>Stack + Transport<br/>interface"]
   SC["FprimeCsp_SocketCan<br/>optional Linux adapter"]
-  LPARAM["Space Inventor libparam<br/>csh/2.10"]
+  LPARAM["SI libparam<br/>csh/2.10"]
   CSP["Space Inventor libcsp<br/>csh/2.10"]
-  CAN["Configured SocketCAN device<br/>or target transport"]
+  CAN["SocketCAN device<br/>or target transport"]
 
   APP --> LP
   APP --> RT
@@ -144,19 +145,19 @@ Prime component thread, not from a protocol callback.
 
 ```mermaid
 sequenceDiagram
-  participant RX as Transport receive worker
-  participant Router as CSP router task
-  participant Callback as Bound service callback
-  participant Queue as Application-owned bounded queue
-  participant Component as Active F Prime component thread
+  participant RX as RX<br/>worker
+  participant Router as CSP<br/>router
+  participant Callback as Service<br/>callback
+  participant Queue as Bounded<br/>queue
+  participant Component as F Prime<br/>component
 
   RX->>Router: deliver received CSP frame
-  Router->>Callback: invoke with csp_packet_t pointer
-  Callback->>Callback: validate and copy payload
+  Router->>Callback: invoke with<br/>csp_packet_t pointer
+  Note right of Callback: Validate and copy<br/>payload
   Callback->>Queue: nonblocking enqueue
-  Callback-->>Router: reply or release packet exactly once
+  Callback-->>Router: reply or release packet<br/>exactly once
   Component->>Queue: drain copied request
-  Component->>Component: update state and emit F Prime outputs
+  Note left of Component: Update state + emit<br/>F Prime outputs
 ```
 
 | Context | Expected work |
@@ -196,6 +197,13 @@ Configuration and registration happen before routing starts. During shutdown,
 stop producers first, request and join the router, and only then close the
 transport or release callback and descriptor state. Once terminal teardown has
 started, do not call libcsp or libparam again.
+
+The SocketCAN close is itself ordered and retryable. It first unregisters the
+interface from libcsp and only then stops the driver. A failed unregister does
+not stop the driver, and a successful unregister is not repeated when a later
+driver-stop retry is required. If terminal teardown still cannot complete, the
+owner must retain the affected objects or terminate the process; their
+destructors fail closed rather than release live callback or driver state.
 
 The pinned libcsp callback API has no general unbind/reset operation. `Stack`
 is therefore process-final: launch a new process instead of trying to create a
