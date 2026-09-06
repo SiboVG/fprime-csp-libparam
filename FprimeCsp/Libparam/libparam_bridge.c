@@ -42,7 +42,7 @@ int fprimecsp_param_pull_u32(param_t* parameter,
     if (validation != 0) {
         return validation;
     }
-    if (parameter->type != PARAM_TYPE_UINT32) {
+    if ((parameter->type != PARAM_TYPE_UINT32) || (parameter->array_size != 1)) {
         return -2;
     }
     const int status = param_pull_single(parameter,
@@ -68,7 +68,7 @@ int fprimecsp_param_push_u32(param_t* parameter,
     if (validation != 0) {
         return validation;
     }
-    if (parameter->type != PARAM_TYPE_UINT32) {
+    if ((parameter->type != PARAM_TYPE_UINT32) || (parameter->array_size != 1)) {
         return -2;
     }
     uint32_t mutable_value = value;

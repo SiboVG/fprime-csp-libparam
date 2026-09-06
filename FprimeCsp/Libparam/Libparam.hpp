@@ -37,6 +37,7 @@ class Client final {
   public:
     explicit Client(std::uint8_t protocolVersion = 2);
 
+    /** Legacy scalar operations require a one-element UINT32 descriptor. */
     bool pullU32(param_t& parameter,
                  std::uint16_t peerNode,
                  std::uint32_t timeoutMs,

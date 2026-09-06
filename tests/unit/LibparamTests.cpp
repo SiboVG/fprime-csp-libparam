@@ -159,6 +159,14 @@ void legacyU32OperationsRejectUnsafeDescriptorsAndTimeoutsBeforeIo() {
     EXPECT_FALSE(client.pushU32(parameter, 72, 100, 11U));
     EXPECT_EQ(TestDoubles::paramState().pushCalls, 0);
 
+    parameter.array_size = 3;
+    EXPECT_FALSE(client.pushU32(parameter, 71, 100, 11U));
+    EXPECT_EQ(TestDoubles::paramState().pushCalls, 0);
+    EXPECT_FALSE(client.pullU32(parameter, 71, 100, value));
+    EXPECT_EQ(TestDoubles::paramState().pullCalls, 0);
+    EXPECT_EQ(value, 77U);
+    parameter.array_size = 1;
+
     parameter.type = PARAM_TYPE_INT32;
     EXPECT_FALSE(client.pullU32(parameter, 71, 100, value));
     EXPECT_EQ(TestDoubles::paramState().pullCalls, 0);
