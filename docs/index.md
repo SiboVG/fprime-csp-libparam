@@ -30,7 +30,9 @@ Start with:
 - `pullInteger` and `pushInteger` validate protocol version, descriptor node,
   type, storage, alignment, array index, timeout conversion, and write range
   before starting I/O.
-- Runtime and Libparam host builds are supported on Linux and Darwin.
+- The default dependency build supports Linux. Host unit tests run on
+  Linux and Darwin; the Darwin smoke consumer is compile-only and a runnable
+  Darwin application requires a consumer-provided, ported `csp` target.
   SocketCAN remains Linux-only; embedded targets still require an upstream
   libparam port and target qualification.
 - CI separates unit tests, sanitizers, a standalone F Prime consumer, coverage,

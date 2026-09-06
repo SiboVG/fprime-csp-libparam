@@ -16,7 +16,7 @@ verified merely because a procedure exists or `vcan` passed.
 |---|---|---|
 | Host unit tests | Runtime ownership, ordered shutdown, retryable two-phase SocketCAN close, typed libparam validation, and error propagation against deterministic boundary fakes | Does not execute a real protocol stack or CAN controller |
 | Repository contracts | Dependency pins, F Prime library registration, strict-warning policy, CI structure, documentation navigation, and hardware-status wording | Inspects repository structure rather than runtime behavior |
-| Standalone F Prime consumer | F Prime discovers `library.cmake` and compiles Runtime and Libparam against the pinned sources on a clean consumer graph | Does not instantiate a mission topology or SocketCAN |
+| Standalone F Prime consumer | F Prime discovers `library.cmake` and compiles Runtime and Libparam against the pinned sources on a clean consumer graph | Uses a header-only CSP target; does not compile libcsp, link an executable, instantiate a mission topology, or exercise SocketCAN |
 | Sanitizers | Host unit paths run with address and undefined-behavior instrumentation | Cannot prove target-specific behavior |
 | Coverage | The workflow enforces an 80% production line-coverage gate and retains XML results | Coverage is not proof of correct requirements or timing |
 | Static analysis | `clang-tidy` analyzes the production Runtime, SocketCAN, Libparam, and bridge sources with warnings as errors | A configured job is evidence only after its workflow run succeeds |

@@ -76,10 +76,11 @@ dependencies.
 
 The bundled libparam configuration uses a dynamic descriptor list and needs
 `<sys/queue.h>`; the pinned sources also contain Linux-oriented headers.
-Runtime and Libparam host builds are supported on Linux and Darwin. The package
-provides scoped Darwin compatibility definitions for the Linux `<malloc.h>`
-and `<endian.h>` APIs used by the pinned dependency. SocketCAN remains
-Linux-only. Set `FPRIMECSP_LIBPARAM_CONFIG_DIR` to select another generated
+The default dependency build supports Linux. Darwin supports host unit tests
+and the compile-only smoke consumer, which substitutes a header-only `csp`
+target. A runnable Darwin application requires a consumer-provided, ported
+`csp` target and an executable link/runtime test. The compatibility headers
+cover libparam only. SocketCAN remains Linux-only. Set `FPRIMECSP_LIBPARAM_CONFIG_DIR` to select another generated
 `libparam.h`; an embedded application must still port and qualify the upstream
 sources around that configuration.
 

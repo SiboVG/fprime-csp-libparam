@@ -71,10 +71,11 @@ the SocketCAN module is Linux-specific and requires the host
 SocketCAN/libsocketcan dependencies.
 
 The bundled libparam CMake configuration currently enables its dynamic
-descriptor list, which requires `<sys/queue.h>`. Runtime and Libparam host
-builds are supported on Linux and Darwin; the package supplies scoped Darwin
-compatibility definitions for the Linux `<malloc.h>` and `<endian.h>` APIs used
-by the pinned dependency. SocketCAN remains Linux-only.
+descriptor list, which requires `<sys/queue.h>`. The default dependency build supports Linux. On Darwin, host unit tests
+and the compile-only smoke consumer work; a runnable application requires a
+consumer-provided, ported `csp` target. The pinned libcsp CMake build does not
+support Darwin. Scoped Darwin compatibility headers cover libparam only.
+SocketCAN remains Linux-only.
 `FPRIMECSP_LIBPARAM_CONFIG_DIR` can select another generated `libparam.h`
 profile, but an embedded target must still port and qualify the upstream
 sources before treating the module as flight code.

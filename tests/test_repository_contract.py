@@ -389,7 +389,7 @@ class DocumentationContract(unittest.TestCase):
         integration = read("docs/integration.md")
         normalized = " ".join(integration.split())
         self.assertIn(
-            "Runtime and Libparam host builds are supported on Linux and Darwin",
+            "The default dependency build supports Linux",
             normalized,
         )
         self.assertIn("SocketCAN remains Linux-only", normalized)
