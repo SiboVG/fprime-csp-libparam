@@ -29,6 +29,11 @@ option(
     "Build the Linux SocketCAN transport"
     OFF
 )
+option(
+    FPRIMECSP_ENABLE_ZEPHYR_CAN
+    "Build the Zephyr CAN transport (fprime-zephyr platform)"
+    OFF
+)
 
 set(FPRIMECSP_LIBCSP_COMMIT "5a95e5c48826c3602bf4a34aa5d60e2af9e4a004")
 set(FPRIMECSP_LIBPARAM_COMMIT "d78da56e7cbc8b6be30d8890b6f01cdf80d0b9b9")
@@ -70,7 +75,13 @@ function(fprimecsp_verify_revision source_dir expected_commit dependency_name)
     endif()
 endfunction()
 
-find_package(Threads REQUIRED)
+# Zephyr has no host thread library; F Prime's Os layer provides the tasks.
+if(FPRIME_PLATFORM STREQUAL "Zephyr")
+    set(FPRIMECSP_THREADS_TARGET "")
+else()
+    find_package(Threads REQUIRED)
+    set(FPRIMECSP_THREADS_TARGET Threads::Threads)
+endif()
 
 if(TARGET csp)
     if(NOT DEFINED CSP_USE_RDP)
@@ -84,6 +95,15 @@ if(TARGET csp)
 elseif(DEFINED CSP_USE_RDP AND NOT CSP_USE_RDP)
     message(FATAL_ERROR
         "CSP_USE_RDP must be ON for bounded FprimeCsp router shutdown.")
+endif()
+
+if(FPRIMECSP_ENABLE_ZEPHYR_CAN)
+    if(NOT FPRIME_PLATFORM STREQUAL "Zephyr")
+        message(FATAL_ERROR "FPRIMECSP_ENABLE_ZEPHYR_CAN requires the fprime-zephyr platform")
+    endif()
+    if(NOT CONFIG_CSP_HAVE_CAN)
+        message(FATAL_ERROR "FPRIMECSP_ENABLE_ZEPHYR_CAN requires CONFIG_LIBCSP and CONFIG_CSP_HAVE_CAN")
+    endif()
 endif()
 
 if(FPRIMECSP_ENABLE_SOCKETCAN)
@@ -217,7 +237,7 @@ if(NOT TARGET ${FPRIMECSP_LIBPARAM_C_TARGET})
         )
     endif()
     target_compile_options(${FPRIMECSP_LIBPARAM_C_TARGET} PRIVATE -Wall -Wextra)
-    target_link_libraries(${FPRIMECSP_LIBPARAM_C_TARGET} PUBLIC csp Threads::Threads)
+    target_link_libraries(${FPRIMECSP_LIBPARAM_C_TARGET} PUBLIC csp ${FPRIMECSP_THREADS_TARGET})
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         find_package(PkgConfig REQUIRED)

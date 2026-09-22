@@ -6,7 +6,7 @@ register_fprime_library(
     DEPENDS
         Os
         csp
-        Threads::Threads
+        ${FPRIMECSP_THREADS_TARGET}
 )
 
 target_compile_features(${FPRIME_CURRENT_MODULE} PUBLIC cxx_std_17)
