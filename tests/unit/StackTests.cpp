@@ -158,11 +158,32 @@ void routerRunsStopsAndJoins() {
     EXPECT_TRUE(TestDoubles::cspState().routeCalls.load() > 0);
     EXPECT_EQ(Os::Test::taskStartCalls, static_cast<std::size_t>(1));
     EXPECT_EQ(Os::Test::lastTaskName, std::string("CspRouter"));
+    // Unconfigured: the OS layer's defaults, as before the option existed
+    EXPECT_EQ(Os::Test::lastTaskPriority, Os::Task::TASK_PRIORITY_DEFAULT);
+    EXPECT_EQ(Os::Test::lastTaskStackSize, Os::Task::TASK_DEFAULT);
 
     stack.requestStop();
     EXPECT_TRUE(stack.join());
     EXPECT_FALSE(stack.isRouterRunning());
     EXPECT_EQ(Os::Test::taskJoinCalls, static_cast<std::size_t>(1));
+}
+
+void routerUsesConfiguredPriorityAndStackSize() {
+    TestDoubles::resetCsp();
+    Os::Test::resetTaskFake();
+    RecordingTransport transport;
+    FprimeCsp::Stack stack;
+    FprimeCsp::StackConfig config = validConfig();
+    config.routerPriority = 45;
+    config.routerStackSize = 8192;
+    EXPECT_TRUE(stack.initialize(config, transport));
+
+    EXPECT_TRUE(stack.startRouter());
+    EXPECT_EQ(Os::Test::lastTaskPriority, static_cast<std::uint32_t>(45));
+    EXPECT_EQ(Os::Test::lastTaskStackSize, static_cast<std::size_t>(8192));
+
+    stack.requestStop();
+    EXPECT_TRUE(stack.join());
 }
 
 void routerStartErrorIsReported() {
@@ -251,6 +272,7 @@ int main(int argc, char** argv) {
          {"callback_binding_forwards_and_preserves_errors", callbackBindingForwardsAndPreservesErrors},
          {"service_handler_binding_is_idempotent", serviceHandlerBindingIsIdempotent},
          {"router_runs_stops_and_joins", routerRunsStopsAndJoins},
+         {"router_uses_configured_priority_and_stack_size", routerUsesConfiguredPriorityAndStackSize},
          {"router_start_error_is_reported", routerStartErrorIsReported},
          {"shutdown_defers_transport_close_until_router_join_succeeds",
           shutdownDefersTransportCloseUntilRouterJoinSucceeds},

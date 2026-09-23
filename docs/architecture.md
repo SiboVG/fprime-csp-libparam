@@ -218,6 +218,12 @@ second stack or hot-restart one in place.
   space. The library validates the node and prefix for the selected version.
 - The network-prefix value is a prefix length, such as `8`, rather than an IP
   netmask string.
+- `StackConfig::routerPriority` and `routerStackSize` set the `CspRouter`
+  task's priority (F Prime scale: higher is more important) and stack size.
+  They default to the OS layer's defaults. Every CSP packet, including every
+  reply a client waits for, passes through the router, so on an RTOS give it a
+  priority at least as high as the tasks that use CSP. On Zephyr the default is
+  the lowest priority.
 - `Client` defaults to **libparam protocol version 2**. Both peers must agree on
   the version and on every parameter ID, type, node, and array shape.
 - Indexed integer operations support `UINT8`, `INT8`, `UINT16`, `INT16`,

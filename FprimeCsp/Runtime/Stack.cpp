@@ -61,6 +61,8 @@ bool Stack::initialize(const StackConfig& config, Transport& transport) {
     this->m_hostname = config.hostname;
     this->m_model = config.model;
     this->m_revision = config.revision;
+    this->m_routerPriority = config.routerPriority;
+    this->m_routerStackSize = config.routerStackSize;
 
     csp_conf.version = config.protocolVersion;
     csp_conf.hostname = this->m_hostname.c_str();
@@ -121,8 +123,8 @@ bool Stack::startRouter() {
     const Os::Task::Arguments arguments(taskName,
                                         Stack::routerEntry,
                                         this,
-                                        Os::Task::TASK_PRIORITY_DEFAULT,
-                                        Os::Task::TASK_DEFAULT,
+                                        this->m_routerPriority,
+                                        this->m_routerStackSize,
                                         Os::Task::TASK_DEFAULT);
     if (this->m_routerTask.start(arguments) != Os::Task::OP_OK) {
         this->m_routerRunning.store(false);

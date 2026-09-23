@@ -23,6 +23,8 @@ inline int taskJoinStatus = 0;
 inline std::size_t taskStartCalls = 0;
 inline std::size_t taskJoinCalls = 0;
 inline std::string lastTaskName;
+inline std::uint32_t lastTaskPriority = 0;
+inline std::size_t lastTaskStackSize = 0;
 
 inline void resetTaskFake() {
     taskStartStatus = 0;
@@ -30,6 +32,8 @@ inline void resetTaskFake() {
     taskStartCalls = 0;
     taskJoinCalls = 0;
     lastTaskName.clear();
+    lastTaskPriority = 0;
+    lastTaskStackSize = 0;
 }
 }  // namespace Test
 
@@ -90,6 +94,8 @@ class Task final {
     Status start(const Arguments& arguments) {
         ++Test::taskStartCalls;
         Test::lastTaskName = arguments.m_name.toChar();
+        Test::lastTaskPriority = arguments.m_priority;
+        Test::lastTaskStackSize = arguments.m_stackSize;
         const Status status = static_cast<Status>(Test::taskStartStatus);
         if (status != OP_OK) {
             return status;
