@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cstdint>
 #include <string>
+#include <type_traits>
 
 extern "C" {
 #include <csp/csp.h>
@@ -30,6 +31,10 @@ class Transport {
     virtual int close() = 0;
 };
 
+/** Types of Os::Task's priority and stack size, as the OS layer defines them. */
+using TaskPriority = std::remove_cv_t<decltype(Os::Task::TASK_PRIORITY_DEFAULT)>;
+using TaskSize = std::remove_cv_t<decltype(Os::Task::TASK_DEFAULT)>;
+
 /** Process-wide libcsp configuration. The strings remain owned by Stack. */
 struct StackConfig {
     std::uint16_t localNode = 0;
@@ -40,6 +45,15 @@ struct StackConfig {
     std::string revision = "unknown";
     std::uint32_t defaultConnectionOptions = CSP_O_NONE;
     std::uint8_t deduplication = CSP_DEDUP_OFF;
+    /**
+     * Priority of the CspRouter task, on F Prime's scale (higher is more
+     * important). Every CSP reply passes through the router, so on an RTOS it
+     * should not be below the tasks that wait for replies. The default leaves
+     * the choice to the OS layer (on Zephyr: the lowest priority).
+     */
+    TaskPriority routerPriority = Os::Task::TASK_PRIORITY_DEFAULT;
+    /** Stack size of the CspRouter task in bytes; the default leaves it to the OS layer. */
+    TaskSize routerStackSize = Os::Task::TASK_DEFAULT;
 };
 
 /** Result of an ordered router and transport shutdown attempt. */
@@ -91,6 +105,8 @@ class Stack final {
     bool m_processOwner = false;
     bool m_serviceHandlerBound = false;
     int m_lastError = 0;
+    TaskPriority m_routerPriority = Os::Task::TASK_PRIORITY_DEFAULT;
+    TaskSize m_routerStackSize = Os::Task::TASK_DEFAULT;
 
     // csp_conf retains pointers to these strings for the lifetime of CSP.
     std::string m_hostname;
