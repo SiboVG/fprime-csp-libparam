@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FPRIMECSP_RUNTIME_STACK_HPP
+#define FPRIMECSP_RUNTIME_STACK_HPP
 
 #include <Os/Task.hpp>
 
@@ -115,3 +116,5 @@ class Stack final {
 };
 
 }  // namespace FprimeCsp
+
+#endif  // FPRIMECSP_RUNTIME_STACK_HPP

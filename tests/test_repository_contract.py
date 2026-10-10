@@ -39,6 +39,15 @@ MODULES = {
 }
 
 
+# Byte-identical copies of the shared static-analysis tooling. Their upstream
+# reference names the workspace that maintains them; they are tooling, not a
+# runtime or build dependency of the library.
+VENDORED_STATIC_ANALYSIS_FILES = frozenset(
+    LIBRARY_ROOT / "scripts" / name
+    for name in ("static_analysis.py", "install-cppcheck.sh", "clang-tidy")
+)
+
+
 def read(relative_path: str) -> str:
     path = LIBRARY_ROOT / relative_path
     if not path.is_file():
@@ -62,7 +71,11 @@ def production_files() -> list[Path]:
         LIBRARY_ROOT / "LICENSE",
     ]
     for root in roots:
-        files.extend(path for path in root.rglob("*") if path.is_file())
+        files.extend(
+            path
+            for path in root.rglob("*")
+            if path.is_file() and path not in VENDORED_STATIC_ANALYSIS_FILES
+        )
     return sorted(files)
 
 
@@ -559,14 +572,49 @@ class DocumentationContract(unittest.TestCase):
             "-DFPRIMECSP_ENABLE_COVERAGE=ON",
             "--fail-under-line 80",
             "static-analysis:",
+            "python3 scripts/static_analysis.py --build host",
+            "scripts/install-cppcheck.sh",
+            "cppcheck",
             "clang-tidy",
-            "--warnings-as-errors=*",
         ):
             self.assertIn(token, workflow)
         self.assertIn(
             "option(FPRIMECSP_ENABLE_COVERAGE",
             read("tests/unit/CMakeLists.txt"),
         )
+
+    def test_static_analysis_gate_covers_production_sources_with_zero_findings(
+        self,
+    ) -> None:
+        config = read("static-analysis.toml")
+        tidy = read(".clang-tidy")
+        runner = read("scripts/static_analysis.py")
+        for token in (
+            'name = "host"',
+            '"-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"',
+            '"FprimeCsp/**"',
+            '"tests/**"',
+            '"lib/*"',
+            'local_builds = ["host"]',
+        ):
+            with self.subTest(config_token=token):
+                self.assertIn(token, config)
+        self.assertIn("WarningsAsErrors: '*'", tidy)
+        self.assertIn("HeaderFilterRegex: '(^|/)(FprimeCsp|Config)/'", tidy)
+        self.assertIn('CPPCHECK_VERSION = "2.22.0"', runner)
+        self.assertIn('CLANG_TIDY_VERSION = "22.1.8"', runner)
+        self.assertIn("--enable=warning,style,performance,portability", runner)
+        for name in ("install-cppcheck.sh", "clang-tidy", "static_analysis.py"):
+            with self.subTest(executable=name):
+                self.assertTrue(os.access(LIBRARY_ROOT / "scripts" / name, os.X_OK))
+
+    def test_editor_runs_the_same_static_analysis_as_ci(self) -> None:
+        settings = read(".vscode/settings.json")
+        tasks = read(".vscode/tasks.json")
+        self.assertIn("build-static/compile_commands.json", settings)
+        self.assertIn("scripts/clang-tidy", settings)
+        self.assertIn("python3 scripts/static_analysis.py", tasks)
+        self.assertIn("ms-vscode.cpptools", read(".vscode/extensions.json"))
 
     def test_architecture_is_the_authoritative_protocol_and_f_prime_explanation(
         self,

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FPRIMECSP_SOCKETCAN_SOCKETCANTRANSPORT_HPP
+#define FPRIMECSP_SOCKETCAN_SOCKETCANTRANSPORT_HPP
 
 #include "FprimeCsp/Runtime/Stack.hpp"
 
@@ -38,3 +39,5 @@ class SocketCanTransport final : public Transport {
 };
 
 }  // namespace FprimeCsp
+
+#endif  // FPRIMECSP_SOCKETCAN_SOCKETCANTRANSPORT_HPP

@@ -8,7 +8,7 @@ namespace {
 constexpr int ERROR_ALREADY_INITIALIZED = -200;
 constexpr int ERROR_PROCESS_OWNER_EXISTS = -201;
 constexpr int ERROR_INVALID_PROTOCOL_VERSION = -202;
-constexpr int ERROR_TRANSPORT = -203;
+// -203 is reserved: transport failures report the transport's own error code.
 constexpr int ERROR_NOT_INITIALIZED = -204;
 constexpr int ERROR_ROUTER_TASK = -205;
 constexpr int ERROR_INVALID_LOCAL_NODE = -206;
@@ -75,7 +75,7 @@ bool Stack::initialize(const StackConfig& config, Transport& transport) {
     this->m_transport = &transport;
     const int transportStatus = this->m_transport->open(config.localNode, config.networkPrefix);
     if (transportStatus != CSP_ERR_NONE) {
-        this->m_lastError = (transportStatus == 0) ? ERROR_TRANSPORT : transportStatus;
+        this->m_lastError = transportStatus;
         return false;
     }
 

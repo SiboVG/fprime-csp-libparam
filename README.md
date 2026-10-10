@@ -111,6 +111,19 @@ manifest and compiles both reusable modules against the pinned dependencies:
 ./tests/run_runtime_smoke.sh /path/to/fprime /path/to/libcsp
 ```
 
+The static-analysis gate runs the pinned cppcheck 2.22.0 and clang-tidy
+22.1.8 over every production translation unit in the host unit build and fails
+on any finding:
+
+```bash
+python3 scripts/static_analysis.py
+```
+
+In VS Code, run the *Static analysis (cppcheck + clang-tidy)* task, or let the
+C/C++ extension report the same clang-tidy findings while editing; see
+[Verification evidence](docs/verification-evidence.md#static-analysis-gate) for
+the rule set, suppression policy, and the Zephyr CAN coverage route.
+
 Serve the documentation locally with:
 
 ```bash
@@ -124,8 +137,8 @@ Use `mkdocs build --strict --clean` for the same documentation check run by
 continuous integration.
 
 Every pull request runs the C++ unit tests, sanitizers, repository contracts,
-standalone consumer build, 80% production line-coverage gate, `clang-tidy`
-static analysis, and strict documentation build. On trusted pushes, CI also
+standalone consumer build, 80% production line-coverage gate, cppcheck and
+`clang-tidy` static analysis, and strict documentation build. On trusted pushes, CI also
 checks out the private downstream acceptance consumer, builds its full F Prime
 deployment, and verifies CSP ping plus libparam pull, push, read-back, and
 restoration over Linux `vcan` without exposing its deploy key to pull requests.

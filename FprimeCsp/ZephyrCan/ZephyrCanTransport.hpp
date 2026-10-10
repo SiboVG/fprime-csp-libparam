@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FPRIMECSP_ZEPHYRCAN_ZEPHYRCANTRANSPORT_HPP
+#define FPRIMECSP_ZEPHYRCAN_ZEPHYRCANTRANSPORT_HPP
 
 #include "FprimeCsp/Runtime/Stack.hpp"
 
@@ -42,3 +43,5 @@ class ZephyrCanTransport final : public Transport {
 };
 
 }  // namespace FprimeCsp
+
+#endif  // FPRIMECSP_ZEPHYRCAN_ZEPHYRCANTRANSPORT_HPP

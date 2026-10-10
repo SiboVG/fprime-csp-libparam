@@ -99,22 +99,33 @@ jobs:
 
   static-analysis:
     runs-on: ubuntu-24.04
+    env:
+      CPPCHECK_VERSION: "2.22.0"
+      CLANG_TIDY_VERSION: "22.1.8"
     steps:
       - uses: actions/checkout@v7
-      - name: Install static-analysis tooling
-        run: sudo apt-get update && sudo apt-get install -y clang-tidy ninja-build
-      - name: Generate compilation database
+      - name: Install build tooling
+        run: sudo apt-get update && sudo apt-get install -y cmake ninja-build g++
+      - name: Cache pinned cppcheck
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/cppcheck-${{ env.CPPCHECK_VERSION }}
+          key: cppcheck-${{ env.CPPCHECK_VERSION }}-${{ runner.os }}-${{ runner.arch }}
+      - name: Install pinned cppcheck and clang-tidy
+        run: |
+          sh scripts/install-cppcheck.sh "$CPPCHECK_VERSION"
+          echo "CPPCHECK=$HOME/.local/cppcheck-$CPPCHECK_VERSION/bin/cppcheck" >> "$GITHUB_ENV"
+          pipx install "clang-tidy==$CLANG_TIDY_VERSION"
+      - name: Run cppcheck and clang-tidy on production sources
         run: >-
-          cmake -S tests/unit -B build-static-analysis -G Ninja
-          -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-      - name: Analyze production sources
-        run: >-
-          clang-tidy --warnings-as-errors=* -p build-static-analysis
-          FprimeCsp/Runtime/Stack.cpp
-          FprimeCsp/SocketCan/SocketCanTransport.cpp
-          FprimeCsp/Libparam/Libparam.cpp
-          FprimeCsp/Libparam/libparam_bridge.c
+          python3 scripts/static_analysis.py --build host
+          --report static-analysis-report.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: fprime-csp-libparam-static-analysis
+          path: static-analysis-report.txt
+          if-no-files-found: warn
 
   integration-consumer:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

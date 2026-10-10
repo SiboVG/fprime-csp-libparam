@@ -24,7 +24,9 @@ run by the repository workflow. It does not imply hardware qualification.
 - Unit tests isolate libcsp, libparam, SocketCAN, and task boundaries with
   deterministic fakes.
 - Sanitizers exercise the same host suite for memory and undefined behavior.
-- Coverage and static-analysis jobs are enforced independently of the tests.
+- Coverage and static-analysis jobs are enforced independently of the tests;
+  the static-analysis gate runs pinned cppcheck and clang-tidy over the
+  production sources and fails on any finding.
 - The downstream Linux `vcan` consumer verifies the real pinned protocol
   libraries without physical hardware.
 - `FCL-HIL-001` remains open until an operator runs the physical procedure,

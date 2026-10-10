@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FPRIMECSP_LIBPARAM_LIBPARAM_HPP
+#define FPRIMECSP_LIBPARAM_LIBPARAM_HPP
 
 #include "FprimeCsp/Runtime/Stack.hpp"
 
@@ -67,3 +68,5 @@ class Client final {
 };
 
 }  // namespace FprimeCsp
+
+#endif  // FPRIMECSP_LIBPARAM_LIBPARAM_HPP

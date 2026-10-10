@@ -188,7 +188,7 @@ int fprimecsp_param_pull_integer(param_t* parameter,
             *value = param_get_uint32_array(parameter, index);
             break;
         case PARAM_TYPE_INT8:
-            *value = param_get_int8_array(parameter, index);
+            *value = (int64_t)param_get_int8_array(parameter, index);
             break;
         case PARAM_TYPE_INT16:
             *value = param_get_int16_array(parameter, index);

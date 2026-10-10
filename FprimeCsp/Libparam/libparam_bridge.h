@@ -1,4 +1,5 @@
-#pragma once
+#ifndef FPRIMECSP_LIBPARAM_LIBPARAM_BRIDGE_H
+#define FPRIMECSP_LIBPARAM_LIBPARAM_BRIDGE_H
 
 #include <stdint.h>
 
@@ -9,6 +10,7 @@
 extern "C" {
 #endif
 
+/* NOLINTNEXTLINE(performance-enum-size): shared C/C++ header; C17 cannot fix an enum's base type */
 enum {
     FPRIMECSP_PARAM_SERVER_PORT = 10,
     FPRIMECSP_PARAM_PROTOCOL_VERSION = 2,
@@ -42,3 +44,5 @@ int fprimecsp_param_push_integer(param_t* parameter,
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* FPRIMECSP_LIBPARAM_LIBPARAM_BRIDGE_H */
