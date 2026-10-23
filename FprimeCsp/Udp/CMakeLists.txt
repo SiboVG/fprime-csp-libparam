@@ -18,3 +18,9 @@ target_include_directories(${FPRIME_CURRENT_MODULE} PUBLIC "${FPRIMECSP_LIBRARY_
 # Lets consumers choose this transport at compile time
 target_compile_definitions(${FPRIME_CURRENT_MODULE} PUBLIC FPRIMECSP_HAVE_UDP=1)
 fprimecsp_enable_strict_warnings(${FPRIME_CURRENT_MODULE})
+if(FPRIME_PLATFORM STREQUAL "Zephyr" AND TARGET zephyr_interface)
+    # Zephyr's network headers are not pedantic C++ (GNU extensions, zero-size arrays):
+    # as for libcsp, the strict policy covers this module's code, not its dependencies
+    target_include_directories(${FPRIME_CURRENT_MODULE} SYSTEM PRIVATE
+        $<TARGET_PROPERTY:zephyr_interface,INTERFACE_INCLUDE_DIRECTORIES>)
+endif()
