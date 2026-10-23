@@ -111,6 +111,7 @@ flowchart TB
   LP["FprimeCsp_Libparam<br/>Registry + Server<br/>Client"]
   RT["FprimeCsp_Runtime<br/>Stack + Transport<br/>interface"]
   SC["FprimeCsp_SocketCan<br/>optional Linux adapter"]
+  UDP["FprimeCsp_Udp<br/>optional CSP over UDP"]
   LPARAM["SI libparam<br/>csh/2.10"]
   CSP["Space Inventor libcsp<br/>csh/2.10"]
   CAN["SocketCAN device<br/>or target transport"]
@@ -124,12 +125,15 @@ flowchart TB
   RT --> SC
   SC --> CSP
   SC --> CAN
+  RT --> UDP
+  UDP --> CSP
 ```
 
 | Target | Responsibility |
 |---|---|
 | `FprimeCsp_Runtime` | Validates stack configuration, initializes libcsp, attaches one `Transport`, binds services, owns the router task, and provides ping. |
 | `FprimeCsp_SocketCan` | Opens and closes one already-configured Linux SocketCAN interface. It is optional so Linux headers do not leak into other targets. |
+| `FprimeCsp_Udp` | CSP over UDP to one peer, in the datagram format of libcsp's own `csp_if_udp` (csh `csp add udp`): validates the configuration, opens a socket, runs the `UdpReceive` task and registers the CSP interface. Optional; builds on Linux, macOS and Zephyr (BSD sockets). |
 | `FprimeCsp_Libparam` | Registers application-owned descriptors, binds the port-10 server, and provides narrow typed client operations. |
 | Consuming application | Owns addresses, descriptors and storage, payload schemas, FPP interfaces, topology, authorization, retry behavior, and fault policy. |
 

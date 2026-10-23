@@ -264,6 +264,29 @@ an F Prime lifecycle class. The [topology guide][Build an F Prime topology] and
 Do not try to restart the process-global stack in place. A deployment that
 needs a fresh CSP lifetime should launch a new process.
 
+## CSP over UDP
+
+`FprimeCsp_Udp` (`-DFPRIMECSP_ENABLE_UDP=ON`) carries CSP to one peer over UDP, in the
+format of libcsp's own `csp_if_udp`: one datagram per CSP packet, the CSP header followed
+by the data. A csh session reaches it with `csp add udp -l <port> -r <port> <addr> <peer IP>`.
+
+```cpp
+#include "FprimeCsp/Udp/UdpTransport.hpp"
+
+FprimeCsp::UdpConfig udp;
+udp.peer = "192.168.70.1";   // unicast IPv4, dotted decimal
+udp.localPort = 9220;        // csh's default for both ports
+udp.remotePort = 9220;
+FprimeCsp::UdpTransport transport(udp);
+```
+
+`UdpTransport::validate()` reports whether `open()` would accept a configuration. The
+transport accepts datagrams only from its peer and counts the rest as receive errors. Its
+`UdpReceive` task waits at most 200 ms per receive, which bounds `Stack::shutdown()`.
+The host configures the network interface and address; the transport only binds a UDP port.
+On Zephyr the image needs `CONFIG_NET_SOCKETS`, `CONFIG_NET_CONTEXT_RCVTIMEO`,
+`CONFIG_NET_IPV4` and `CONFIG_NET_UDP`; the build checks them.
+
 ## Linux SocketCAN notes
 
 The library opens an interface that the host has already configured. CAN

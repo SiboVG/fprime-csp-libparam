@@ -1,7 +1,14 @@
 #include "TestDoubles.hpp"
 
+#include <algorithm>
 #include <cstring>
 #include <thread>
+
+extern "C" {
+#include <csp/csp_buffer.h>
+#include <csp/csp_id.h>
+#include <csp/csp_iflist.h>
+}
 
 namespace TestDoubles {
 namespace {
@@ -42,6 +49,16 @@ void resetCsp() {
     state.stopCalls = 0;
     state.stopStatus = CSP_ERR_NONE;
     state.closeOrder.clear();
+    state.buffersInUse.store(0);
+    state.bufferFreeCalls.store(0);
+    state.bufferGetFailures.store(0);
+    state.stripFailures.store(0);
+    {
+        const std::lock_guard<std::mutex> lock(state.deliveredMutex);
+        state.delivered.clear();
+    }
+    state.deliveredCount.store(0);
+    state.interfaces.clear();
     csp_conf = {2, "", "", "", CSP_O_NONE, CSP_DEDUP_OFF};
 }
 }  // namespace TestDoubles
@@ -116,6 +133,88 @@ int csp_can_socketcan_stop(csp_iface_t*) {
     ++state.stopCalls;
     state.closeOrder.emplace_back("stop");
     return state.stopStatus;
+}
+
+csp_packet_t* csp_buffer_get(size_t) {
+    auto& state = TestDoubles::cspState();
+    if (state.bufferGetFailures.load() > 0) {
+        --state.bufferGetFailures;
+        return nullptr;
+    }
+    ++state.buffersInUse;
+    return new csp_packet_t{};
+}
+
+void csp_buffer_free(void* buffer) {
+    auto& state = TestDoubles::cspState();
+    ++state.bufferFreeCalls;
+    --state.buffersInUse;
+    delete static_cast<csp_packet_t*>(buffer);
+}
+
+void csp_id_prepend(csp_packet_t* packet) {
+    packet->frame_begin = packet->data - sizeof(TestDoubles::FAKE_HEADER);
+    std::memcpy(packet->frame_begin, TestDoubles::FAKE_HEADER, sizeof(TestDoubles::FAKE_HEADER));
+    packet->frame_length = static_cast<std::uint16_t>(packet->length + sizeof(TestDoubles::FAKE_HEADER));
+}
+
+int csp_id_setup_rx(csp_packet_t* packet) {
+    packet->frame_begin = packet->data - sizeof(TestDoubles::FAKE_HEADER);
+    packet->frame_length = 0;
+    return static_cast<int>(sizeof(TestDoubles::FAKE_HEADER));
+}
+
+int csp_id_strip(csp_packet_t* packet) {
+    auto& state = TestDoubles::cspState();
+    if (state.stripFailures.load() > 0) {
+        --state.stripFailures;
+        return -1;
+    }
+    if (packet->frame_length < sizeof(TestDoubles::FAKE_HEADER)) {
+        return -1;
+    }
+    packet->length = static_cast<std::uint16_t>(packet->frame_length - sizeof(TestDoubles::FAKE_HEADER));
+    return 0;
+}
+
+void csp_qfifo_write(csp_packet_t* packet, csp_iface_t* iface, void*) {
+    auto& state = TestDoubles::cspState();
+    {
+        const std::lock_guard<std::mutex> lock(state.deliveredMutex);
+        TestDoubles::CspState::Delivered entry;
+        entry.frame.assign(packet->frame_begin, packet->frame_begin + packet->frame_length);
+        entry.data.assign(packet->data, packet->data + packet->length);
+        entry.iface = iface;
+        state.delivered.push_back(std::move(entry));
+    }
+    ++state.deliveredCount;
+    csp_buffer_free(packet);
+}
+
+void csp_iflist_add(csp_iface_t* iface) {
+    auto& interfaces = TestDoubles::cspState().interfaces;
+    for (const csp_iface_t* existing : interfaces) {
+        if ((existing == iface) || (std::strncmp(existing->name, iface->name, CSP_IFLIST_NAME_MAX) == 0)) {
+            return;  // as libcsp: a duplicate is ignored silently
+        }
+    }
+    interfaces.push_back(iface);
+}
+
+void csp_iflist_remove(csp_iface_t* iface) {
+    auto& state = TestDoubles::cspState();
+    state.closeOrder.emplace_back("remove");
+    state.interfaces.erase(std::remove(state.interfaces.begin(), state.interfaces.end(), iface),
+                           state.interfaces.end());
+}
+
+csp_iface_t* csp_iflist_get_by_name(const char* name) {
+    for (csp_iface_t* iface : TestDoubles::cspState().interfaces) {
+        if (std::strncmp(iface->name, name, CSP_IFLIST_NAME_MAX) == 0) {
+            return iface;
+        }
+    }
+    return nullptr;
 }
 
 }  // extern "C"

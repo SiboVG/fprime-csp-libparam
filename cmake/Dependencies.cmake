@@ -34,6 +34,11 @@ option(
     "Build the Zephyr CAN transport (fprime-zephyr platform)"
     OFF
 )
+option(
+    FPRIMECSP_ENABLE_UDP
+    "Build the CSP over UDP transport (Linux, macOS, or Zephyr with BSD sockets)"
+    OFF
+)
 
 set(FPRIMECSP_LIBCSP_COMMIT "5a95e5c48826c3602bf4a34aa5d60e2af9e4a004")
 set(FPRIMECSP_LIBPARAM_COMMIT "d78da56e7cbc8b6be30d8890b6f01cdf80d0b9b9")
@@ -103,6 +108,15 @@ if(FPRIMECSP_ENABLE_ZEPHYR_CAN)
     endif()
     if(NOT CONFIG_CSP_HAVE_CAN)
         message(FATAL_ERROR "FPRIMECSP_ENABLE_ZEPHYR_CAN requires CONFIG_LIBCSP and CONFIG_CSP_HAVE_CAN")
+    endif()
+endif()
+
+if(FPRIMECSP_ENABLE_UDP AND FPRIME_PLATFORM STREQUAL "Zephyr")
+    # The receive timeout bounds the transport's close (FCL-UDP-006)
+    if(NOT CONFIG_NET_SOCKETS OR NOT CONFIG_NET_CONTEXT_RCVTIMEO OR NOT CONFIG_NET_IPV4 OR NOT CONFIG_NET_UDP)
+        message(FATAL_ERROR
+            "FPRIMECSP_ENABLE_UDP on Zephyr requires CONFIG_NET_SOCKETS, CONFIG_NET_CONTEXT_RCVTIMEO, "
+            "CONFIG_NET_IPV4 and CONFIG_NET_UDP")
     endif()
 endif()
 

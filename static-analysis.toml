@@ -1,8 +1,8 @@
 # Inputs for scripts/static_analysis.py (cppcheck + clang-tidy zero-finding gate).
 # Production sources only; test code and the libcsp/libparam/OS boundary fakes
 # are verified by execution, not analysed. The host unit build compiles
-# Runtime, SocketCan, Libparam and the C bridge against those fakes, so it runs
-# on Linux and macOS. ZephyrCan compiles only under Zephyr and is analysed by
+# Runtime, SocketCan, Udp, Libparam and the C bridge against those fakes (Udp's
+# socket layer against the host's POSIX sockets), so it runs on Linux and macOS. ZephyrCan compiles only under Zephyr and is analysed by
 # the consuming Zephyr bench build.
 
 local_builds = ["host"]
