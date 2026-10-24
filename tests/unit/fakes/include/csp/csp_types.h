@@ -36,10 +36,27 @@ typedef struct {
     uint8_t sport;
 } csp_id_t;
 
+/* The layout of libcsp csh/2.10 (layer 2 fields, length, id, header, data); __extension__
+ * keeps -Wpedantic quiet about its anonymous structs, as libcsp is a system header in the build */
 typedef struct csp_packet_s {
-    uint32_t frame_begin;
+    union {
+        __extension__ struct {
+            uint32_t timestamp_tx;
+            uint32_t timestamp_rx;
+            struct csp_conn_s* conn;
+        };
+        __extension__ struct {
+            uint16_t rx_count;
+            uint16_t remain;
+            uint32_t cfpid;
+            uint32_t last_used;
+            uint8_t* frame_begin;
+            uint16_t frame_length;
+        };
+    };
     uint16_t length;
     csp_id_t id;
+    struct csp_packet_s* next;
     uint8_t header[CSP_PACKET_PADDING_BYTES];
     union {
         uint8_t data[CSP_BUFFER_SIZE];

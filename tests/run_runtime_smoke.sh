@@ -55,6 +55,6 @@ trap cleanup EXIT
     -B "$build_root" \
     -DSMOKE_FPRIME_FRAMEWORK_PATH="$fprime_source" \
     -DSMOKE_LIBCSP_SOURCE="$libcsp_source"
-"$CMAKE_EXECUTABLE" --build "$build_root" --target FprimeCsp_Runtime FprimeCsp_Libparam
+"$CMAKE_EXECUTABLE" --build "$build_root" --target FprimeCsp_Runtime FprimeCsp_Libparam FprimeCsp_Udp
 
 echo "FprimeCsp Runtime and Libparam smoke build passed."

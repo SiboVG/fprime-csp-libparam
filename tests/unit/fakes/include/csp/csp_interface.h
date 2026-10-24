@@ -6,6 +6,8 @@
 extern "C" {
 #endif
 
+#define CSP_IFLIST_NAME_MAX 10
+
 typedef int (*nexthop_t)(csp_iface_t*, uint16_t, csp_packet_t*, int);
 typedef int (*csp_alias_add_t)(void*, uint16_t);
 
@@ -30,6 +32,8 @@ struct csp_iface_s {
     uint32_t irq;
     struct csp_iface_s* next;
 };
+
+void csp_qfifo_write(csp_packet_t* packet, csp_iface_t* iface, void* pxTaskWoken);
 
 #ifdef __cplusplus
 }

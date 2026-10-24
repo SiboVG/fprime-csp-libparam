@@ -30,6 +30,7 @@ RELEASE_TAG = "csh/2.10"
 MODULES = {
     "Runtime": ("Stack.cpp", "Stack.hpp"),
     "SocketCan": ("SocketCanTransport.cpp", "SocketCanTransport.hpp"),
+    "Udp": ("UdpTransport.cpp", "UdpTransport.hpp", "UdpSockets.cpp"),
     "Libparam": (
         "Libparam.cpp",
         "Libparam.hpp",
@@ -289,6 +290,18 @@ class FPrimePackageContract(unittest.TestCase):
             r"option\(\s*FPRIMECSP_ENABLE_SOCKETCAN[\s\S]*?OFF\s*\)",
         )
         self.assertIn("if(NOT FPRIMECSP_ENABLE_SOCKETCAN)", socketcan)
+
+    def test_udp_is_an_opt_in_module_built_by_the_smoke_consumer(self) -> None:
+        # FCL-UDP-007: off by default; the standalone consumer builds it on Linux
+        dependencies = read("cmake/Dependencies.cmake")
+        udp = read("FprimeCsp/Udp/CMakeLists.txt")
+        self.assertRegex(dependencies, r"option\(\s*FPRIMECSP_ENABLE_UDP[\s\S]*?OFF\s*\)")
+        self.assertIn("if(NOT FPRIMECSP_ENABLE_UDP)", udp)
+        self.assertIn("FPRIMECSP_HAVE_UDP=1", udp)
+        smoke = (SMOKE_ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+        self.assertIn('set(FPRIMECSP_ENABLE_UDP ON CACHE BOOL "" FORCE)', smoke)
+        self.assertIn("if(NOT TARGET FprimeCsp_Udp)", smoke)
+        self.assertIn("FprimeCsp_Udp", SMOKE_RUNNER.read_text(encoding="utf-8"))
 
 
 class RuntimeSafetyContract(unittest.TestCase):

@@ -52,6 +52,23 @@ add_executable(socketcan_tests
 fprimecsp_test_options(socketcan_tests)
 target_link_libraries(socketcan_tests PRIVATE test_csp_fakes test_os_fakes)
 
+add_executable(udp_tests
+    UdpTests.cpp
+    "${FPRIMECSP_ROOT}/FprimeCsp/Runtime/Stack.cpp"
+    "${FPRIMECSP_ROOT}/FprimeCsp/Udp/UdpTransport.cpp"
+)
+fprimecsp_test_options(udp_tests)
+target_link_libraries(udp_tests PRIVATE test_csp_fakes test_os_fakes)
+
+# The platform's sockets themselves, over the loopback interface (POSIX hosts)
+add_executable(udp_socket_tests
+    UdpSocketTests.cpp
+    "${FPRIMECSP_ROOT}/FprimeCsp/Udp/UdpSockets.cpp"
+)
+fprimecsp_test_options(udp_socket_tests)
+target_link_libraries(udp_socket_tests PRIVATE test_os_fakes)
+target_include_directories(udp_socket_tests PRIVATE "${TEST_INCLUDE}")
+
 add_executable(libparam_tests
     LibparamTests.cpp
     "${FPRIMECSP_ROOT}/FprimeCsp/Runtime/Stack.cpp"
@@ -118,4 +135,51 @@ add_scenarios(libparam_tests
     bridge_guards_null_inputs
     bridge_rejects_invalid_protocol_versions
     bridge_serves_non_null_packets
+)
+
+add_scenarios(udp_tests
+    udp001_send_is_header_and_data_only
+    udp001_empty_packet_is_the_header_alone
+    udp001_received_datagram_reaches_the_router
+    udp002_empty_datagram_is_rejected
+    udp002_datagram_one_byte_shorter_than_the_header_is_rejected
+    udp002_datagram_one_byte_longer_than_the_largest_packet_is_rejected
+    udp002_much_longer_datagram_is_rejected
+    udp002_datagram_from_another_sender_is_rejected
+    udp002_header_the_stack_refuses_is_rejected
+    udp002_boundary_sizes_are_delivered
+    udp002_datagram_without_a_free_buffer_is_dropped
+    udp002_receive_error_does_not_stop_receiving
+    udp003_send_goes_to_the_peer_address_and_port
+    udp003_sent_packet_is_released_once
+    udp003_send_error_leaves_the_packet_to_libcsp
+    udp003_partial_send_is_a_failure
+    udp004_peer_that_is_not_an_address_is_invalid
+    udp004_peer_that_is_not_unicast_is_invalid
+    udp004_zero_ports_are_invalid
+    udp004_interface_names_out_of_bounds_are_invalid
+    udp004_registered_interface_name_is_invalid
+    udp004_valid_boundaries_are_accepted
+    udp004_open_refuses_an_invalid_peer_before_any_socket
+    udp004_open_refuses_a_registered_name_before_any_socket
+    udp004_boundary_configuration_is_accepted
+    udp004_open_registers_the_configured_interface
+    udp005_socket_failure_leaves_no_interface
+    udp005_task_failure_closes_the_socket
+    udp005_task_failure_with_a_failing_socket_close_is_reported
+    udp006_close_unregisters_then_stops_receiving_then_closes_the_socket
+    udp006_close_is_bounded_by_the_receive_timeout
+    udp006_nothing_reaches_the_router_after_close
+    udp006_failed_task_join_is_retried_without_unregistering_twice
+    udp006_failed_socket_close_is_retried_without_stopping_twice
+)
+
+add_scenarios(udp_socket_tests
+    udp_socket_datagram_arrives_with_its_sender
+    udp_socket_receive_waits_at_most_the_timeout
+    udp_socket_bound_port_cannot_be_opened_twice
+    udp_socket_longer_datagram_is_cut_to_the_buffer
+    udp_socket_close_reports_an_invalid_socket
+    udp_socket_send_on_an_invalid_socket_fails
+    udp_socket_open_failure_reports_the_errno
 )

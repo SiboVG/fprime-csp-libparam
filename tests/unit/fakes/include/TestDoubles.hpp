@@ -2,6 +2,7 @@
 
 #include <atomic>
 #include <cstdint>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -44,7 +45,25 @@ struct CspState {
     int stopCalls = 0;
     int stopStatus = CSP_ERR_NONE;
     std::vector<std::string> closeOrder;
+
+    // Packet buffers, CSP header and router queue (CSP over UDP)
+    std::atomic<int> buffersInUse{0};
+    std::atomic<int> bufferFreeCalls{0};
+    std::atomic<int> bufferGetFailures{0};  // the next n csp_buffer_get() calls find no buffer
+    std::atomic<int> stripFailures{0};      // the next n csp_id_strip() calls refuse the header
+    std::mutex deliveredMutex;
+    struct Delivered {
+        std::vector<std::uint8_t> frame;   // frame_begin .. frame_length, as handed to the router
+        std::vector<std::uint8_t> data;    // data .. length, after the header was stripped
+        csp_iface_t* iface = nullptr;
+    };
+    std::vector<Delivered> delivered;
+    std::atomic<int> deliveredCount{0};
+    std::vector<csp_iface_t*> interfaces;
 };
+
+/** The 6 bytes the fake csp_id_prepend() writes in front of the data (a CSP v2 header's size). */
+constexpr std::uint8_t FAKE_HEADER[6] = {0xC5, 0x50, 0x00, 0x2A, 0x10, 0x41};
 
 struct ParamState {
     int listAddCalls = 0;

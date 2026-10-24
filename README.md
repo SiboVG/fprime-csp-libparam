@@ -61,6 +61,7 @@ Link only the modules the application uses:
 |---|---|
 | `FprimeCsp_Runtime` | CSP initialization, abstract transport attachment, service binding, router lifecycle, and ping |
 | `FprimeCsp_SocketCan` | Optional Linux `SocketCanTransport` implementation |
+| `FprimeCsp_Udp` | Optional `UdpTransport`: CSP over UDP to one peer (Linux, macOS, Zephyr); `FPRIMECSP_ENABLE_UDP=ON` |
 | `FprimeCsp_Libparam` | Parameter `Registry`, port-10 `Server`, and typed `Client` pull/push operations |
 
 For example, an application adapter using all three lists those targets in its
@@ -164,6 +165,9 @@ GitHub Enterprise.
 - `SocketCanTransport(SocketCanConfig)` attaches an already configured Linux
   CAN interface. `Stack` alone invokes the transport's private open/close
   lifecycle.
+- `UdpTransport(UdpConfig)` carries CSP over UDP to one peer, wire-compatible
+  with libcsp's `csp_if_udp` (csh `csp add udp`, port 9220).
+  `UdpTransport::validate()` checks a configuration before use.
 - `Registry::add(param_t&)` registers an application-owned descriptor;
   `Server::bind(Stack&)` exposes the complete registry on port 10.
 - `Client(protocolVersion)` supplies synchronous typed operations for

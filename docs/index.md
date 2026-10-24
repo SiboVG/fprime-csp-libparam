@@ -27,6 +27,11 @@ Start with:
   close remains retryable, and incomplete destruction is process-fatal.
 - The two-phase SocketCAN close unregisters the interface before stopping its
   driver and does not repeat a completed phase on retry.
+- `UdpTransport` carries CSP over UDP to one peer in libcsp's `csp_if_udp`
+  format; it rejects malformed, oversized and foreign datagrams, and closes in a
+  bounded, retryable order. Host-verified with unit and loopback tests, and on
+  hardware: a Zephyr target (TE0715) and Linux over Ethernet, also against libcsp's
+  own `csp_if_udp` (FCL-HIL-002).
 - `pullInteger` and `pushInteger` validate protocol version, descriptor node,
   type, storage, alignment, array index, timeout conversion, and write range
   before starting I/O.
